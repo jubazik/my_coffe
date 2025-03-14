@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if order_id %}Редактирование заказа{% else %}Создание заказа{% endif %}</title>
+    <style>
+        .product-form {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .add-product {
+            margin-top: 10px;
+        }
+        .messages {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .messages .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .messages .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>{% if order_id %}Редактирование заказа{% else %}Создание заказа{% endif %}</h1>
+
+    <!-- Уведомления -->
+    {% if messages %}
+        <div class="messages">
+            {% for message in messages %}
+                <div class="{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+
+        <!-- Основные данные заказа -->
+        <div>
+            {{ order_form.table.label_tag }} {{ order_form.table }}
+        </div>
+        <div>
+            {{ order_form.status.label_tag }} {{ order_form.status }}
+        </div>
+
+        <!-- Динамические поля для товаров -->
+        <div id="product-forms">
+            {% for item in order_items %}
+                <div class="product-form">
+                    <div>
+                        <label>Товар:</label>
+                        <select name="product-{{ forloop.counter0 }}" required>
+                            {% for product in products %}
+                                <option value="{{ product.id }}" {% if product.id == item.product.id %}selected{% endif %}>{{ product.name }} ({{ product.price }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label>Количество:</label>
+                        <input type="number" name="count-{{ forloop.counter0 }}" min="1" value="{{ item.count }}" required>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Кнопка для добавления нового товара -->
+        <button type="button" id="add-product" class="add-product">Добавить товар</button>
+
+        <!-- Кнопка для сохранения заказа -->
+        <button type="submit">Сохранить заказ</button>
+    </form>
+
+    <script>
+        // JavaScript для добавления новых полей товаров
+        document.getElementById('add-product').addEventListener('click', function() {
+            const productForms = document.getElementById('product-forms');
+            const index = productForms.children.length;
+
+            const newForm = document.createElement('div');
+            newForm.classList.add('product-form');
+            newForm.innerHTML = `
+                <div>
+                    <label>Товар:</label>
+                    <select name="product-${index}" required>
+                        {% for product in products %}
+                            <option value="{{ product.id }}">{{ product.name }} ({{ product.price }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Количество:</label>
+                    <input type="number" name="count-${index}" min="1" value="1" required>
+                </div>
+            `;
+
+            productForms.appendChild(newForm);
+        });
+    </script>
+</body>
+</html>
