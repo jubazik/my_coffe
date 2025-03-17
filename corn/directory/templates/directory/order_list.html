@@ -18,28 +18,26 @@
     </style>
 </head>
 <body>
-    <h1>Заказ на столе {{ order.table }}</h1>
-    <p>Дата: {{ order.date }}</p>
-    <p>Статус: {{ order.get_status_display }}</p>
     <table>
         <thead>
             <tr>
-                <th>Товар</th>
-                <th>Количество</th>
-                <th>Цена</th>
+                <th>Заказа №</th>
+                <th>Дата</th>
+                <th>Стол</th>
                 <th>Сумма</th>
+                <th>Статус</th>
             </tr>
         </thead>
         <tbody>
-            {% for item in order.orderitem_set.all %}
+            {% for item in orders %}
             <tr>
-                <td>{{ item.product.name }}</td>
-                <td>{{ item.count }}</td>
-                <td>{{ item.price }}</td>
-                <td>{{ item.sum }}</td>
+                <td>{{ item.id }}</td>
+                <td>{{ item.date }}</td>
+                <td>{{ item.table }}</td>
+                <td>{{ item.total_sum }} p</td>
+                <td>{{ item.get_status_display }}</td>
             </tr>
             {% endfor %}
-        <p>Общая сумма: {{ order.total_sum }}</p>
         </tbody>
     </table>
 </body>

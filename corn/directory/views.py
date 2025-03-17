@@ -1,7 +1,9 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.db.models import Sum, Avg
 from django.contrib import messages
 from .forms import OrderForm
 from .models import Products, OrderTable, OrderItem
+
 
 
 def product_list(request):
@@ -66,7 +68,7 @@ def create_order(request):
 
             if not messages.get_messages(request):
                 messages.success(request, "Заказ успешно создан.")
-                return redirect('directory/order_detail', order_id=order.id)
+                return redirect('directory/order_list.html', order_id=order.id)
     else:
         order_form = OrderForm()
 
@@ -157,7 +159,8 @@ def edit_order(request, order_id):
 
 def order_list(request):
     """Отображение списка заказов."""
-    orders = OrderTable.objects.all()
+    orders = OrderTable.objects.annotate(total_sum=Sum('orderitem__sum'))
+    # orders = OrderTable.objects.all()
     return render(request, 'directory/order_list.html', {'orders': orders})
 
 

@@ -10,7 +10,7 @@
     {% for product in products %}
     <li>
         {{ product.name }} - {{ product.price }}
-        <a href="{% url 'create_order_with_product' product.id %}">Добавить в заказ</a>
+        <a href="{% url 'create_order' %}">Добавить в заказ</a>
     </li>
     {% endfor %}
 </ul>
