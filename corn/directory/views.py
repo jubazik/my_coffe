@@ -147,7 +147,7 @@ def edit_order(request, order_id):
 
             if not messages.get_messages(request):
                 messages.success(request, "Заказ успешно обновлен.")
-                return redirect('directory/order_detail', order_id=order.id)
+                return redirect('directory/order_detail.html', order_id=order.id)
     else:
         order_form = OrderForm(instance=order)
 
@@ -156,6 +156,12 @@ def edit_order(request, order_id):
         'products': products,
         'order_items': order_items,
     })
+
+def order_detail(request, order_id):
+    order = get_object_or_404(OrderTable, id=order_id)
+    order_items = OrderItem.objects.filter(order=order)
+    products = Products.objects.all()
+    return render(request, 'directory/order_detail.html', { "order":order,'order_items': order_items, "products":products})
 
 def order_list(request):
     """Отображение списка заказов."""

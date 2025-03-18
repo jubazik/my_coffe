@@ -20,7 +20,7 @@ class OrderForm(forms.ModelForm):
 class OrderItemForm(forms.ModelForm):
     class Meta:
         model = OrderItem  # Указываем модель, с которой связана форма
-        fields = ['product', 'count']  # Поля, которые будут отображаться в форме
+        fields = ['product', 'count' ]  # Поля, которые будут отображаться в форме
 
     def clean_count(self):
         count = self.cleaned_data['count']
@@ -33,3 +33,5 @@ class OrderItemForm(forms.ModelForm):
         # Добавляем CSS-классы для стилизации полей формы (опционально)
         self.fields['product'].widget.attrs.update({'class': 'form-control'})
         self.fields['count'].widget.attrs.update({'class': 'form-control'})
+        self.fields['price'].widget.attrs.update({'class': 'form-control'})
+        self.fields['sum'].widget.attrs.update({'class': 'form-control'})
