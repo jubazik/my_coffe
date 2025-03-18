@@ -3,7 +3,7 @@ from django.db.models import Sum, Avg
 from django.contrib import messages
 from .forms import OrderForm
 from .models import Products, OrderTable, OrderItem
-
+import datetime
 
 
 def product_list(request):
@@ -163,7 +163,7 @@ def order_detail(request, order_id):
     return render(request, 'directory/order_detail.html', { "order":order,'order_items': order_items, "products":products})
 
 def order_list(request):
-
+    
     """Отображение списка заказов."""
     orders = OrderTable.objects.annotate(total_sum=Sum('orderitem__sum'))
     total_order_sum = orders.aggregate(total=Sum("total_sum"))['total'] or 0
