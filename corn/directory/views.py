@@ -11,7 +11,6 @@ def product_list(request):
     products = Products.objects.all()
     return render(request, 'directory/product_list.html', {'products': products})
 
-
 def create_order(request):
     products = Products.objects.all()
 
@@ -164,11 +163,11 @@ def order_detail(request, order_id):
     return render(request, 'directory/order_detail.html', { "order":order,'order_items': order_items, "products":products})
 
 def order_list(request):
+
     """Отображение списка заказов."""
     orders = OrderTable.objects.annotate(total_sum=Sum('orderitem__sum'))
-    # orders = OrderTable.objects.all()
-    return render(request, 'directory/order_list.html', {'orders': orders})
-
+    total_order_sum = orders.aggregate(total=Sum("total_sum"))['total'] or 0
+    return render(request, 'directory/order_list.html', {'orders': orders, 'total_order_sum': total_order_sum})
 
 def update_order_status(request, order_id, status):
     """Изменение статуса заказа."""

@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models import Sum
+
 
 class Type(models.Model):
     name = models.CharField(max_length=25, unique=True, verbose_name='Тип')
@@ -56,6 +58,9 @@ class OrderTable(models.Model):
 
     def __str__(self):
         return f'Заказ {self.id} на столе {self.table}'
+
+    def total_sum(self):
+        return self.orderitem_set.aggregate(total=Sum('sum'))['total'] or 0
 
     def products_list(self):
         return ", ".join([item.product.name for item in self.orderitem_set.all()])

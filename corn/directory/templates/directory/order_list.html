@@ -33,12 +33,18 @@
             <tr>
                 <td>{{ item.id }}</td>
                 <td>{{ item.date }}</td>
-                <td>{{ item.table }}</td>
+                <td><a href="{% url 'order_detail' item.id %}">{{ item.table }}</a></td>
                 <td>{{ item.total_sum }} p</td>
                 <td>{{ item.get_status_display }}</td>
             </tr>
             {% endfor %}
+            <p class="total"> Общая сумма заказов: {{ total_order_sum }}</p>
+
         </tbody>
+
     </table>
+    <a href="{% url 'create_order' %}">Новый заказ</a>
+
+
 </body>
 </html>
