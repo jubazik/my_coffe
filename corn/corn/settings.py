@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'directory.apps.DirectoryConfig',
-    'countries.apps.CountriesConfig',
+    'counterparties.apps.CounterpartiesConfig',
 
 ]
 
