@@ -13,10 +13,20 @@ class OrderForm(forms.ModelForm):
         self.fields['table'].widget.attrs.update({'class': 'form-control'})
         self.fields['status'].widget.attrs.update({'class': 'form-control'})
 #
-# class OrderForm(forms.ModelForm):
-#     class Meta:
-#         model = OrderTable
-#         fields = ['table', 'status']
+
+class ProductForm(forms.ModelForm):
+    class Meta:
+        model = Products
+        fields = ['name', 'description', 'price', 'category', 'type']
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.fields['name'].widget.attrs.update({'class': 'form-control'})
+            self.fields['description'].widget.attrs.update({'class': 'form-control'})
+            self.fields['price'].widget.attrs.update({'class': 'form-control'})
+            self.fields['category'].widget.attrs.update({'class': 'form-control'})
+            self.fields['type'].widget.attrs.update({'class': 'form-control'})
+
 class OrderItemForm(forms.ModelForm):
     class Meta:
         model = OrderItem  # Указываем модель, с которой связана форма
@@ -35,3 +45,7 @@ class OrderItemForm(forms.ModelForm):
         self.fields['count'].widget.attrs.update({'class': 'form-control'})
         self.fields['price'].widget.attrs.update({'class': 'form-control'})
         self.fields['sum'].widget.attrs.update({'class': 'form-control'})
+
+class DateRangeForm(forms.Form):
+    start_date = forms.DateField(label='Начальная дата', widget=forms.DateInput(attrs={'type': 'date'}))
+    end_date = forms.DateField(label='Конечная дата', widget=forms.DateInput(attrs={'type': 'date'}))

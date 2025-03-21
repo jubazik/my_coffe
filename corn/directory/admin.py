@@ -20,4 +20,4 @@ class OrderItemAdmin(admin.ModelAdmin):
 admin.site.register(Products)
 admin.site.register(Category)
 admin.site.register(Type)
-
+admin.site.register(Table)

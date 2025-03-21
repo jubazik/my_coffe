@@ -1,6 +1,14 @@
 from django.db import models
 from django.db.models import Sum
+#
+class Table(models.Model):
+    name = models.CharField(max_length=100, verbose_name='Стол', default='Стол')
 
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Стол'
 
 class Type(models.Model):
     name = models.CharField(max_length=25, unique=True, verbose_name='Тип')
@@ -46,8 +54,8 @@ class OrderTable(models.Model):
         ('canceled', 'Отменено'),
     ]
 
-    date = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время')
-    table = models.CharField(verbose_name="Стол", max_length=50, default='Стол')
+    date = models.DateField(auto_now_add=True, verbose_name='Дата и время')
+    table = models.ForeignKey(Table, on_delete=models.PROTECT, blank=True)
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,

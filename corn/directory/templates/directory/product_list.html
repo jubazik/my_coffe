@@ -5,6 +5,7 @@
     <title>Title</title>
 </head>
 <body>
+
 <h1>Список товаров</h1>
 <ul>
     {% for product in products %}
@@ -13,6 +14,9 @@
         <a href="{% url 'create_order' %}">Добавить в заказ</a>
     </li>
     {% endfor %}
+
+        <a href="{% url 'created_products_list' %}">Добавить товар</a>
+
 </ul>
 
 </body>
