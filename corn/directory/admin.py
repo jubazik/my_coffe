@@ -17,6 +17,13 @@ class OrderItemAdmin(admin.ModelAdmin):
     list_display = ('order', 'product', 'count', 'price', 'sum')
     readonly_fields = ('price', 'sum')
 
+# Register your models here.
+@admin.register(CashRegister)
+class CashRegisterAdmin(admin.ModelAdmin):
+    list_display = ('id', 'date', 'order', 'sum',)
+    list_filter = ('date', 'order')
+
+
 admin.site.register(Products)
 admin.site.register(Category)
 admin.site.register(Type)

@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'directory.apps.DirectoryConfig',
     'counterparties.apps.CounterpartiesConfig',
-    
+    'admission.apps.AdmissionConfig',
+
 ]
 
 MIDDLEWARE = [
