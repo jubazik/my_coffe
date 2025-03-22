@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Заказ</title>
+    <title>Список заказов</title>
     <style>
         table {
             width: 100%;
@@ -18,41 +18,63 @@
             text-align: left;
         }
     </style>
+    <script>
+        // Функция для автоматической отправки формы при изменении статуса
+        function autoSaveStatus(form) {
+            form.submit();  // Отправляем форму
+        }
+    </script>
 </head>
 <body>
+    <h1>Список заказов</h1>
+
+    <!-- Форма фильтрации по дате -->
     <form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Фильтровать</button>
-</form>
-<table>
-    <thead>
-    <tr>
-        <th>Заказа №</th>
-        <th>Дата</th>
-        <th>Стол</th>
-        <th>Сумма</th>
-        <th>Статус</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for item in orders %}
-    <tr>
-        <td>{{ item.id }}</td>
-        <td>{{ item.date }}</td>
-        <td><a href="{% url 'order_detail' item.id %}">{{ item.table }}</a></td>
-        <td>{{ item.total_sum }} p</td>
-        <td>{{ item.get_status_display }}</td>
-    </tr>
-    {% endfor %}
-    <p class="total"> Общая сумма заказов: {{ total_order_sum }}</p>
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" name="date_range_form">Фильтровать</button>
+    </form>
 
-    </tbody>
+    <!-- Таблица заказов -->
+    <table>
+        <thead>
+            <tr>
+                <th>Заказ №</th>
+                <th>Дата</th>
+                <th>Стол</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in orders %}
+            <tr>
+                <td>{{ item.id }}</td>
+                <td>{{ item.date }}</td>
+                <td><a href="{% url 'order_detail' item.id %}">{{ item.table }}</a></td>
+                <td>{{ item.total_sum }} р</td>
+                <td>
+                    <!-- Форма редактирования статуса -->
+                    <!-- Форма редактирования статуса -->
+                    <form method="post" style="display: inline;" onchange="autoSaveStatus(this)">
+                        {% csrf_token %}
+                        <input type="hidden" name="order_id" value="{{ item.id }}">
+                        <select name="status">
+                            {% for value, label in status_choices %}
+                            <option value="{{ value }}" {% if item.status == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-</table>
-<a href="{% url 'create_order' %}">Новый заказ</a>
+    <!-- Общая сумма заказов -->
+    <p class="total">Общая сумма заказов: {{ total_order_sum }} р</p>
 
-
-
+    <!-- Ссылка на создание нового заказа -->
+    <a href="{% url 'create_order' %}">Новый заказ</a>
 </body>
 </html>
