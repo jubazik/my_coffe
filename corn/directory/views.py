@@ -183,9 +183,8 @@ def order_detail(request, order_id):
     else:
         form = OrderDetailForm(instance=order)
 
-    products = Products.objects.all()
     return render(request, 'directory/order_detail.html',
-                  {"order": order, 'order_items': order_items, "products": products, 'form': form})
+                  {"order": order, 'order_items': order_items,  'form': form})
 
 
 

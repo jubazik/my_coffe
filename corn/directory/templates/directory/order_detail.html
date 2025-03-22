@@ -63,12 +63,7 @@
 
 <p class="total">Общая сумма заказа: {{ order.total_sum }}</p>
 
-<h2>Доступные товары</h2>
-<ul>
-    {% for product in products %}
-    <li>{{ product.name }} - {{ product.price }} руб.</li>
-    {% endfor %}
-</ul>
+
 
 <a href="{% url 'order_list' %}">Вернуться к списку заказов</a>
 </body>

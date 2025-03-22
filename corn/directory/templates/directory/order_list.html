@@ -34,6 +34,7 @@
         {{ form.as_p }}
         <button type="submit" name="date_range_form">Фильтровать</button>
     </form>
+    <a href="{% url 'create_order' %}">Новый заказ</a>
 
     <!-- Таблица заказов -->
     <table>
@@ -75,6 +76,6 @@
     <p class="total">Общая сумма заказов: {{ total_order_sum }} р</p>
 
     <!-- Ссылка на создание нового заказа -->
-    <a href="{% url 'create_order' %}">Новый заказ</a>
+
 </body>
 </html>
