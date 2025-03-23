@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'directory.apps.DirectoryConfig',
     'countries.apps.CountriesConfig',
+    'myauth.apps.MyAuthConfig',
 
 ]
 
