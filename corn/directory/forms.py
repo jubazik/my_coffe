@@ -12,7 +12,17 @@ class OrderForm(forms.ModelForm):
         # Добавляем CSS-классы для стилизации полей формы (опционально)
         self.fields['table'].widget.attrs.update({'class': 'form-control'})
         self.fields['status'].widget.attrs.update({'class': 'form-control'})
-#
+
+
+class OrderDetailForm(forms.ModelForm):
+    class Meta:
+        model = OrderTable
+        fields = ['status']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['status'].widget.attrs.update({'class': 'form-control'})
+
 
 class ProductForm(forms.ModelForm):
     class Meta:

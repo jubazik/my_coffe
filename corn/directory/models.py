@@ -1,5 +1,7 @@
 from django.db import models
 from django.db.models import Sum
+
+
 #
 class Table(models.Model):
     name = models.CharField(max_length=100, verbose_name='Стол', default='Стол')
@@ -9,6 +11,7 @@ class Table(models.Model):
 
     class Meta:
         verbose_name = 'Стол'
+
 
 class Type(models.Model):
     name = models.CharField(max_length=25, unique=True, verbose_name='Тип')
@@ -72,7 +75,22 @@ class OrderTable(models.Model):
 
     def products_list(self):
         return ", ".join([item.product.name for item in self.orderitem_set.all()])
+
     products_list.short_description = 'Товары'
+
+    def save(self, *args, **kwargs):
+        # Проверяем, был ли изменён статус на "оплачено"
+        if self.status == 'paid':
+            # Проверяем, существует ли уже кассовый ордер для этого заказа
+            if not hasattr(self, 'cashregister_order'):
+                # Создаем кассовый ордер
+                CashRegister.objects.create(
+                    order=self,
+                    sum=self.total_sum()
+                )
+
+        super().save(*args, **kwargs)
+
 
     class Meta:
         verbose_name = 'Стол заказов'
@@ -97,3 +115,25 @@ class OrderItem(models.Model):
     class Meta:
         verbose_name = 'Элемент заказа'
         verbose_name_plural = 'Элементы заказа'
+
+class CashRegister(models.Model):
+    date = models.DateField(auto_now_add=True, verbose_name="Дата")
+    order = models.ForeignKey(OrderTable, on_delete=models.CASCADE, related_name='cashregister_table',
+                             verbose_name='Заказ', editable=False)
+    sum = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма", editable=False)
+
+    def __str__(self):
+        return f"{self.date}, {self.order}, {self.sum}"
+
+    def save(self, *args, **kwargs):
+        # Проверяем, что статус заказа "оплачено"
+        if self.order.status == "paid":
+            # Записываем общую сумму заказа
+            self.sum = self.order.total_sum()
+            super().save(*args, **kwargs)
+        else:
+            raise ValueError("Кассовый ордер можно создать только для оплаченного заказа.")
+
+    class Meta:
+        verbose_name = "Приходный кассовый ордер"
+        verbose_name_plural = "Приходные кассовые ордера"

@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Avg
 from django.utils import timezone
 from django.contrib import messages
-from .forms import OrderForm, DateRangeForm, ProductForm
+from .forms import OrderForm, DateRangeForm, ProductForm, OrderDetailForm
 from .models import Products, OrderTable, OrderItem
 import datetime
 
@@ -172,9 +172,21 @@ def edit_order(request, order_id):
 def order_detail(request, order_id):
     order = get_object_or_404(OrderTable, id=order_id)
     order_items = OrderItem.objects.filter(order=order)
-    products = Products.objects.all()
+
+    if request.method == 'POST':
+        order_form = OrderDetailForm(request.POST, instance=order)
+        if order_form.is_valid():
+            order = order_form.save(commit=False)
+            order.table = order.table  # Устанавливаем table
+            order.save()
+            return redirect('order_detail', order_id=order.id)
+    else:
+        form = OrderDetailForm(instance=order)
+
     return render(request, 'directory/order_detail.html',
-                  {"order": order, 'order_items': order_items, "products": products})
+                  {"order": order, 'order_items': order_items,  'form': form})
+
+
 
 
 
@@ -186,26 +198,38 @@ def order_list(request):
     start_date = today
     end_date = today
 
-    # Если форма отправлена, получаем даты из запроса
-    if request.method == 'POST':
+    # Если форма фильтрации отправлена
+    if request.method == 'POST' and 'date_range_form' in request.POST:
         form = DateRangeForm(request.POST)
         if form.is_valid():
             start_date = form.cleaned_data['start_date']
             end_date = form.cleaned_data['end_date']
     else:
-        # Если форма не отправлена, используем текущую дату
+        # Если форма фильтрации не отправлена, используем текущую дату
         form = DateRangeForm(initial={'start_date': today, 'end_date': today})
 
     # Фильтруем заказы по диапазону дат
     orders = OrderTable.objects.filter(date__range=(start_date, end_date)).annotate(total_sum=Sum('orderitem__sum'))
     total_order_sum = orders.aggregate(total=Sum("total_sum"))['total'] or 0
 
+    # Обработка формы редактирования статуса
+    if request.method == 'POST' and 'order_id' in request.POST:
+        order_id = request.POST.get('order_id')
+        order = get_object_or_404(OrderTable, id=order_id)
+        new_status = request.POST.get('status')  # Получаем новый статус из формы
+        order.status = new_status  # Обновляем статус
+        order.save()  # Сохраняем изменения
+        return redirect('order_list')  # Перенаправляем на список заказов
+    # Перенаправляем на список заказов
+    status_choices = OrderTable.STATUS_CHOICES
+
     return render(request, 'directory/order_list.html', {
         'orders': orders,
         'total_order_sum': total_order_sum,
-        'form': form,
+        'form': form,  # Форма фильтрации по дате
         'start_date': start_date,
         'end_date': end_date,
+        'status_choices': status_choices,
     })
 def update_order_status(request, order_id, status):
     """Изменение статуса заказа."""
