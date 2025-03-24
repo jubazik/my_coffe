@@ -162,7 +162,7 @@ def edit_order(request, order_id):
     else:
         order_form = OrderForm(instance=order)
 
-    return render(request, 'directory/order_detail.html', {
+    return render(request, 'directory/edit_order.html', {
         'order_form': order_form,
         'products': products,
         'order_items': order_items,
@@ -184,7 +184,7 @@ def order_detail(request, order_id):
         form = OrderDetailForm(instance=order)
 
     return render(request, 'directory/order_detail.html',
-                  {"order": order, 'order_items': order_items,  'form': form})
+                  {"order": order, 'order_items': order_items,  'form':form})
 
 
 
