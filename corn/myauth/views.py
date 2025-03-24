@@ -30,7 +30,7 @@ class RegisterView(CreateView):
 
 def login_view(request: HttpRequest):
     if request.user.is_authenticated:
-        return redirect('/admin/.html')
+        return redirect('/admin/')
     return render(request, 'myauth/login.html')
 
     username = request.POST.get('username')
@@ -39,15 +39,13 @@ def login_view(request: HttpRequest):
     user = authenticate(request, username=username, password=password)
     if user is not None:
         login(request, user)
-        return redirect('/admin/.html')
+        return redirect('/admin/')
 
     return render(request, 'myauth/login.html', {'error': "invalid login credentials"})
 
 def logout_view(request: HttpRequest):
     logout(request)
     return redirect(reverse("myauth:login"))
-# class MyLogoutView(LogoutView):
-#     next_page = reverse_lazy("myauth:login")
 
 
 def set_cookie_view(request: HttpRequest) -> HttpResponse:
