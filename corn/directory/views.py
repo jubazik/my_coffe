@@ -2,9 +2,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Avg
 from django.utils import timezone
 from django.contrib import messages
-from .forms import OrderForm, DateRangeForm, ProductForm, OrderDetailForm
+from .forms import OrderForm, DateRangeForm, ProductForm
 from .models import Products, OrderTable, OrderItem
 import datetime
+
 
 def created_products_list(request):
     if request.method == "POST":
@@ -17,6 +18,8 @@ def created_products_list(request):
         form = ProductForm()
 
     return render(request, "directory/created_products_list.html", {"form": form})
+
+
 def product_list(request):
     """Отображение списка товаров."""
     products = Products.objects.all()
@@ -158,7 +161,7 @@ def edit_order(request, order_id):
 
             if not messages.get_messages(request):
                 messages.success(request, "Заказ успешно обновлен.")
-                return redirect('directory/order_list.html', order_id=order.id)
+                return redirect('edit_order', order_id=order.id)
     else:
         order_form = OrderForm(instance=order)
 
@@ -167,27 +170,6 @@ def edit_order(request, order_id):
         'products': products,
         'order_items': order_items,
     })
-
-
-def order_detail(request, order_id):
-    order = get_object_or_404(OrderTable, id=order_id)
-    order_items = OrderItem.objects.filter(order=order)
-
-    if request.method == 'POST':
-        order_form = OrderDetailForm(request.POST, instance=order)
-        if order_form.is_valid():
-            order = order_form.save(commit=False)
-            order.table = order.table  # Устанавливаем table
-            order.save()
-            return redirect('order_detail', order_id=order.id)
-    else:
-        form = OrderDetailForm(instance=order)
-
-    return render(request, 'directory/order_detail.html',
-                  {"order": order, 'order_items': order_items,  'form':form})
-
-
-
 
 
 def order_list(request):
@@ -231,12 +213,13 @@ def order_list(request):
         'end_date': end_date,
         'status_choices': status_choices,
     })
+
+
 def update_order_status(request, order_id, status):
     """Изменение статуса заказа."""
     order = get_object_or_404(OrderTable, id=order_id)
     order.status = status
     order.save()
     return redirect('order_list')
-
 
 # Create your views here.
