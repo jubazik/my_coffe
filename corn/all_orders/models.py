@@ -1,6 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.utils import timezone
+from counterparties.models import Counterparties
 
 
 class ExpenseOrder(models.Model):
@@ -13,7 +14,7 @@ class ExpenseOrder(models.Model):
 
     number = models.CharField('Номер ордера', max_length=50, unique=True)
     date = models.DateField('Дата ордера', default=timezone.now)
-    recipient = models.CharField('Получатель', max_length=255)
+    recipient = models.ForeignKey(Counterparties, on_delete=models.PROTECT, verbose_name='Получатель')
     amount = models.DecimalField('Сумма', max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     basis = models.TextField('Основание')
     comment = models.TextField('Комментарий', blank=True)
