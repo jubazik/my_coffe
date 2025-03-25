@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'directory.apps.DirectoryConfig',
     'counterparties.apps.CounterpartiesConfig',
     'myauth.apps.MyauthConfig',
+    'all_orders.apps.AllOrdersConfig',
 
 ]
 
@@ -129,6 +130,11 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 LOGIN_REDIRECT_URL = reverse_lazy('myauth:about-me')
+
+# Формат даты для полей DateField
+USE_L10N = False
+DATE_FORMAT = 'd.m.Y'
+DATE_INPUT_FORMATS = ['%d.%m.%Y', '%Y-%m-%d']
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

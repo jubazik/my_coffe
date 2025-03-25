@@ -1,0 +1,12 @@
+{% extends 'all_orders/base.html' %}
+
+{% block content %}
+<h1>{% if object %}Редактирование{% else %}Создание{% endif %} расходного ордера</h1>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Сохранить</button>
+    <a href="{% url 'expense_order_list' %}" class="btn btn-secondary">Отмена</a>
+</form>
+{% endblock %}
