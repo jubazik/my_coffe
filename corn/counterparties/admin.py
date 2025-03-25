@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Counterpartys
+from .models import Counterparties
 
 
 class CounterpartyAdmin(admin.ModelAdmin):
@@ -8,6 +8,6 @@ class CounterpartyAdmin(admin.ModelAdmin):
 
 
 
-admin.site.register(Counterpartys, CounterpartyAdmin)
+admin.site.register(Counterparties, CounterpartyAdmin)
 
 # Register your models here.

@@ -4,7 +4,7 @@ from directory.models import Products
 
 
 
-class Counterpartys(models.Model):
+class Counterparties(models.Model):
     name = models.CharField(max_length=100, verbose_name="Имя")
     phone = models.IntegerField(verbose_name='Телефон', blank=True, null=True)
     address = models.CharField(verbose_name='Адрес', blank=True, null=True, max_length=100)
