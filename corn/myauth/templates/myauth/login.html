@@ -26,7 +26,16 @@
 {#            <input type="text" id="password" name="password" required>#}
 {#        </p>#}
 
-        <button type="submit">Вход</button>
+{#        <button type="submit">Вход</button>#}
+        <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Войти</button>
+        <button type="button" onclick="location.href='{% url 'myauth:register' %}'"
+                class="btn btn-secondary">
+            Регистрация
+        </button>
+    </div>
+
+
 
 
     </form>

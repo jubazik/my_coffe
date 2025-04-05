@@ -9,7 +9,13 @@
     <form method="post">
         {% csrf_token %}
         {{ form.as_p }}
-        <input type="submit" value="Register">
+        <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Зарегистрироваться</button>
+        <button type="button" onclick="location.href='{% url 'myauth:login' %}'"
+                class="btn btn-secondary">
+            Войти
+        </button>
+{#        <input type="submit" value="Register">#}
     </form>
 {% endblock %}
 
