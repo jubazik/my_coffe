@@ -1,6 +1,6 @@
 from django.db import models
 from django.db.models import Sum
-
+from django.core.validators import MinValueValidator
 
 #
 class Table(models.Model):
@@ -82,7 +82,7 @@ class OrderTable(models.Model):
         # Проверяем, был ли изменён статус на "оплачено"
         if self.status == 'paid':
             # Проверяем, существует ли уже кассовый ордер для этого заказа
-            if not hasattr(self, 'cashoeceiptorder_order'):
+            if not hasattr(self, 'cashreceiptorder_order'):
                 # Создаем кассовый ордер
                 CashReceiptOrder.objects.create(
                     order=self,
