@@ -79,6 +79,9 @@ class OrderTable(models.Model):
     products_list.short_description = 'Товары'
 
     def save(self, *args, **kwargs):
+        # Сохраняем заказ в БД (чтобы получить id)
+        super().save(*args, **kwargs)
+
         # Проверяем, был ли изменён статус на "оплачено"
         if self.status == 'paid':
             # Проверяем, существует ли уже кассовый ордер для этого заказа
@@ -89,13 +92,9 @@ class OrderTable(models.Model):
                     sum=self.total_sum()
                 )
 
-        super().save(*args, **kwargs)
-
-
     class Meta:
         verbose_name = 'Стол заказов'
         verbose_name_plural = 'Столы заказов'
-
 
 class OrderItem(models.Model):
     order = models.ForeignKey(OrderTable, on_delete=models.CASCADE, verbose_name='Заказ')
