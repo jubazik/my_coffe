@@ -2,6 +2,18 @@ from django import forms
 from django.core.exceptions import ValidationError
 from .models import OrderTable, OrderItem, Products  # Импортируем модели
 #
+
+class OrderForm(forms.ModelForm):
+    class Meta:
+        model = OrderTable
+        fields = ['table']
+
+class OrderFilterForm(forms.Form):
+    STATUS_CHOICES = [
+        ('', 'Все статусы'),
+        *OrderTable.STATUS_CHOICES
+    ]
+    status = forms.ChoiceField(choices=STATUS_CHOICES, required=False)
 class OrderForm(forms.ModelForm):
     class Meta:
         model = OrderTable  # Указываем модель, с которой связана форма
@@ -12,7 +24,7 @@ class OrderForm(forms.ModelForm):
         # Добавляем CSS-классы для стилизации полей формы (опционально)
         self.fields['table'].widget.attrs.update({'class': 'form-control'})
         self.fields['status'].widget.attrs.update({'class': 'form-control'})
-
+#
 
 class OrderDetailForm(forms.ModelForm):
     class Meta:
@@ -57,5 +69,11 @@ class OrderItemForm(forms.ModelForm):
         self.fields['sum'].widget.attrs.update({'class': 'form-control'})
 
 class DateRangeForm(forms.Form):
-    start_date = forms.DateField(label='Начальная дата', widget=forms.DateInput(attrs={'type': 'date'}))
-    end_date = forms.DateField(label='Конечная дата', widget=forms.DateInput(attrs={'type': 'date'}))
+    start_date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        input_formats=['%Y-%m-%d']
+    )
+    end_date = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        input_formats=['%Y-%m-%d']
+    )

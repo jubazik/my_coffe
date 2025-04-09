@@ -1,175 +1,84 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Магазин{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    {% block extra_css %}{% endblock %}
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="/">Магазин</a>
-            <!-- Дополнительные элементы навигации -->
-        </div>
-    </nav>
+{% extends 'base.html' %}  <!-- если есть базовый шаблон -->
 
-    <div class="container mt-4">
-        <div class="container">
-    <h1>  Заказ {{ order.id }}</h1>
-    
-    <!-- Вывод сообщений -->
+    <title>{% block title %}{% if order_id %}Редактирование заказа{% else %}Создание заказа{% endif %}{% endblock %}</title>
+
+{% block content %}
+
+    <h1>{% if order_id %}Редактирование заказа{% else %}Создание заказа{% endif %}</h1>
+
+    <!-- Уведомления -->
     {% if messages %}
-    <div class="alert-messages">
-        {% for message in messages %}
-        <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}">
-            {{ message }}
+        <div class="messages">
+
+                <div class="{{ message.tags }}">{{ message }}</div>
         </div>
-        {% endfor %}
-    </div>
     {% endif %}
 
-    <!-- Основная форма заказа -->
-    <form method="post" id="order-form">
+    <form method="post">
         {% csrf_token %}
-        
-        <div class="card mb-4">
-            <div class="card-header">
-                <h3>Информация о заказе</h3>
-            </div>
-            <div class="card-body">
-                {{ order_form.as_p }}
-            </div>
+
+        <!-- Основные данные заказа -->
+        <div>
+            {{ order_form.table.label_tag }} {{ order_form.table }}
+        </div>
+        <div>
+            {{ order_form.status.label_tag }} {{ order_form.status }}
         </div>
 
-        <!-- Список товаров в заказе -->
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h3>Товары в заказе</h3>
-                <button type="button" class="btn btn-success" id="add-product-btn">Добавить товар</button>
-            </div>
-            <div class="card-body">
-                <div id="products-container">
-                    {% for item in order_items %}
-                    <div class="product-item row mb-3">
-                        <div class="col-md-6">
-                            <label>Товар</label>
-                            <select name="product-{{ forloop.counter }}" class="form-control product-select">
-                                <option value="">Выберите товар</option>
-                                {% for product in products %}
-                                <option value="{{ product.id }}" {% if product.id == item.product.id %}selected{% endif %}>
-                                    {{ product.name }} ({{ product.price }} ₽)
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label>Количество</label>
-                            <input type="number" name="count-{{ forloop.counter }}" 
-                                   class="form-control count-input" 
-                                   value="{{ item.count }}" min="1">
-                        </div>
-                        <div class="col-md-2">
-                            <label>Сумма</label>
-                            <input type="text" class="form-control sum-field" 
-                                   value="{{ item.sum }} ₽" readonly>
-                        </div>
-                        <div class="col-md-1 d-flex align-items-end">
-                            <button type="button" class="btn btn-danger remove-product-btn">×</button>
-                        </div>
+        <!-- Динамические поля для товаров -->
+        <div id="product-forms">
+            {% for item in order_items %}
+                <div class="product-form">
+                    <div>
+                        <label>Товар:</label>
+                        <select name="product-{{ forloop.counter0 }}" required>
+                            {% for product in products %}
+                                <option value="{{ product.id }}" {% if product.id == item.product.id %}selected{% endif %}>{{ product.name }} ({{ product.price }})</option>
+                            {% endfor %}
+                        </select>
                     </div>
-                    {% endfor %}
+                    <div>
+                        <label>Количество:</label>
+                        <input type="number" name="count-{{ forloop.counter0 }}" min="1" value="{{ item.count }}" required>
+                    </div>
                 </div>
-            </div>
+            {% endfor %}
         </div>
 
-        <div class="d-flex justify-content-between">
-            <a href="{% url 'order_list' %}" class="btn btn-secondary">Назад к списку</a>
-            <button type="submit" class="btn btn-primary">Сохранить изменения</button>
-        </div>
+        <!-- Кнопка для добавления нового товара -->
+        <button type="button" id="add-product" class="add-product">Добавить товар</button>
+
+        <!-- Кнопка для сохранения заказа -->
+        <button type="submit">Сохранить заказ</button>
+
+            <a href="{% url 'order_list' %}">Вернуться к списку заказов</a>
+
     </form>
-</div>
 
-<!-- Шаблон для нового товара (используется JavaScript) -->
-<script id="product-template" type="text/template">
-    <div class="product-item row mb-3">
-        <div class="col-md-6">
-            <label>Товар</label>
-            <select name="product-{index}" class="form-control product-select">
-                <option value="">Выберите товар</option>
-                {% for product in products %}
-                <option value="{{ product.id }}">
-                    {{ product.name }} ({{ product.price }} ₽)
-                </option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-3">
-            <label>Количество</label>
-            <input type="number" name="count-{index}" 
-                   class="form-control count-input" value="1" min="1">
-        </div>
-        <div class="col-md-2">
-            <label>Сумма</label>
-            <input type="text" class="form-control sum-field" value="0 ₽" readonly>
-        </div>
-        <div class="col-md-1 d-flex align-items-end">
-            <button type="button" class="btn btn-danger remove-product-btn">×</button>
-        </div>
-    </div>
-</script>
+    <script>
+        // JavaScript для добавления новых полей товаров
+        document.getElementById('add-product').addEventListener('click', function() {
+            const productForms = document.getElementById('product-forms');
+            const index = productForms.children.length;
 
-    </div>
+            const newForm = document.createElement('div');
+            newForm.classList.add('product-form');
+            newForm.innerHTML = `
+                <div>
+                    <label>Товар:</label>
+                    <select name="product-${index}" required>
+                        {% for product in products %}
+                            <option value="{{ product.id }}">{{ product.name }} ({{ product.price }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Количество:</label>
+                    <input type="number" name="count-${index}" min="1" value="1" required>
+                </div>
+            `;
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-   <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Добавление нового товара
-    document.getElementById('add-product-btn').addEventListener('click', function() {
-        const container = document.getElementById('products-container');
-        const template = document.getElementById('product-template').innerHTML;
-        const index = document.querySelectorAll('.product-item').length + 1;
-        
-        const newProductHtml = template.replace(/{index}/g, index);
-        container.insertAdjacentHTML('beforeend', newProductHtml);
-        
-        // Инициализация обработчиков для нового элемента
-        initProductHandlers(container.lastElementChild);
-    });
-    
-    // Удаление товара
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-product-btn')) {
-            e.target.closest('.product-item').remove();
-            // Можно добавить пересчет индексов, если нужно
-        }
-    });
-    
-    // Расчет суммы при изменении товара или количества
-    function initProductHandlers(element) {
-        const select = element.querySelector('.product-select');
-        const countInput = element.querySelector('.count-input');
-        const sumField = element.querySelector('.sum-field');
-        
-        function calculateSum() {
-            if (select.value && countInput.value) {
-                const price = parseFloat(select.options[select.selectedIndex].text.match(/\((\d+\.?\d*) ₽\)/)[1]);
-                const count = parseInt(countInput.value);
-                const sum = price * count;
-                sumField.value = sum.toFixed(2) + ' ₽';
-            } else {
-                sumField.value = '0 ₽';
-            }
-        }
-        
-        select.addEventListener('change', calculateSum);
-        countInput.addEventListener('input', calculateSum);
-    }
-    
-    // Инициализация обработчиков для существующих товаров
-    document.querySelectorAll('.product-item').forEach(initProductHandlers);
-});
-</script>
-</body>
-</html>
+            productForms.appendChild(newForm);
+        });
+    </script>
+{% endblock %}

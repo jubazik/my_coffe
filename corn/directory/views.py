@@ -1,10 +1,18 @@
+import logging
+
+from django.core.paginator import Paginator
+from django.db import transaction
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Avg
 from django.utils import timezone
 from django.contrib import messages
-from .forms import OrderForm, DateRangeForm, ProductForm
+from django.views.decorators.http import require_POST
+
+from .forms import OrderForm, DateRangeForm, ProductForm, OrderFilterForm, OrderItemForm
 from .models import Products, OrderTable, OrderItem
 import datetime
+
+logger = logging.getLogger(__name__)
 
 
 def created_products_list(request):
@@ -28,60 +36,43 @@ def product_list(request):
 
 def create_order(request):
     products = Products.objects.all()
+
     if request.method == 'POST':
         order_form = OrderForm(request.POST)
         if order_form.is_valid():
-            order = order_form.save()
+            try:
+                with transaction.atomic():
+                    order = order_form.save(commit=False)
+                    order.status = 'unpaid'
+                    order.save()
 
-            # Словарь для хранения товаров и их количества
-            product_counts = {}
+                    product_counts = {}
+                    for key, value in request.POST.items():
+                        if key.startswith('product-'):
+                            try:
+                                index = key.split('-')[1]
+                                product_id = value
+                                count = int(request.POST.get(f'count-{index}', 0))
 
-            # Обработка данных POST
-            for key, value in request.POST.items():
-                if key.startswith('product-'):
-                    try:
-                        index = key.split('-')[1]
-                        product_id = value
-                        count = request.POST.get(f'count-{index}')
+                                if count > 0:
+                                    product_counts[product_id] = product_counts.get(product_id, 0) + count
+                            except (ValueError, IndexError):
+                                continue
 
-                        # Проверка наличия product_id и count
-                        if not product_id or not count:
-                            messages.error(request, "Не все поля товара заполнены.")
-                            continue
+                    for product_id, count in product_counts.items():
+                        product = Products.objects.get(id=product_id)
+                        OrderItem.objects.create(
+                            order=order,
+                            product=product,
+                            count=count,
+                            price=product.price,
+                            sum=product.price * count
+                        )
 
-                        # Преобразование count в число
-                        count = int(count)
-                        if count <= 0:
-                            messages.error(request, f"Количество товара должно быть больше 0.")
-                            continue
-
-                        # Добавление товара в словарь
-                        if product_id in product_counts:
-                            product_counts[product_id] += count
-                        else:
-                            product_counts[product_id] = count
-
-                    except (IndexError, ValueError) as e:
-                        messages.error(request, f"Ошибка обработки данных: {str(e)}")
-                        continue
-
-            # Создание OrderItem для каждого товара
-            for product_id, count in product_counts.items():
-                try:
-                    product = Products.objects.get(id=product_id)
-                    OrderItem.objects.create(
-                        order=order,
-                        product=product,
-                        count=count,
-                        price=product.price,
-                        sum=product.price * count
-                    )
-                except Products.DoesNotExist:
-                    messages.error(request, f"Товар с ID {product_id} не найден.")
-
-            if not messages.get_messages(request):
-                messages.success(request, "Заказ успешно создан.")
-                return redirect('order_list')
+                    messages.success(request, "Заказ создан!")
+                    return redirect('order_list')
+            except Exception as e:
+                messages.error(request, f"Ошибка: {str(e)}")
     else:
         order_form = OrderForm()
 
@@ -92,134 +83,174 @@ def create_order(request):
 
 
 def edit_order(request, order_id):
-    # Получаем заказ или возвращаем 404
     order = get_object_or_404(OrderTable, id=order_id)
-    order_items = OrderItem.objects.filter(order=order)
-    products = Products.objects.all()
+
+    if order.status != 'unpaid':
+        messages.error(request, "Редактирование возможно только для неоплаченных заказов")
+        return redirect('order_list')
 
     if request.method == 'POST':
         order_form = OrderForm(request.POST, instance=order)
         if order_form.is_valid():
-            # Сохраняем заказ
-            order = order_form.save()
+            try:
+                with transaction.atomic():
+                    order_form.save()
+                    order.orderitem_set.all().delete()
 
-            # Удаляем старые OrderItem
-            order_items.delete()
+                    product_counts = {}
+                    for key, value in request.POST.items():
+                        if key.startswith('product-'):
+                            try:
+                                index = key.split('-')[1]
+                                product_id = value
+                                count = int(request.POST.get(f'count-{index}', 0))
 
-            # Словарь для хранения товаров и их количества
-            product_counts = {}
+                                if count > 0:
+                                    product_counts[product_id] = product_counts.get(product_id, 0) + count
+                            except (ValueError, IndexError):
+                                continue
 
-            # Обработка данных POST
-            for key, value in request.POST.items():
-                if key.startswith('product-'):
-                    try:
-                        index = key.split('-')[1]
-                        product_id = value
-                        count = request.POST.get(f'count-{index}')
-
-                        # Проверка наличия product_id и count
-                        if not product_id or not count:
-                            messages.error(request, "Не все поля товара заполнены.")
-                            continue
-
-                        # Преобразование count в число
-                        count = int(count)
-                        if count <= 0:
-                            messages.error(request, f"Количество товара должно быть больше 0.")
-                            continue
-
-                        # Добавление товара в словарь
-                        if product_id in product_counts:
-                            product_counts[product_id] += count
-                        else:
-                            product_counts[product_id] = count
-
-                    except (IndexError, ValueError) as e:
-                        messages.error(request, f"Ошибка обработки данных: {str(e)}")
-                        continue
-
-            # Создание OrderItem для каждого товара
-            order_items_to_create = []
-            for product_id, count in product_counts.items():
-                try:
-                    product = Products.objects.get(id=product_id)
-                    order_items_to_create.append(
-                        OrderItem(
+                    for product_id, count in product_counts.items():
+                        product = Products.objects.get(id=product_id)
+                        OrderItem.objects.create(
                             order=order,
                             product=product,
                             count=count,
                             price=product.price,
                             sum=product.price * count
                         )
-                    )
-                except Products.DoesNotExist:
-                    messages.error(request, f"Товар с ID {product_id} не найден.")
 
-            # Массовое создание OrderItem
-            if order_items_to_create:
-                OrderItem.objects.bulk_create(order_items_to_create)
-
-            if not messages.get_messages(request):
-                messages.success(request, "Заказ успешно обновлен.")
-                return redirect('edit_order', order_id=order.id)
+                    messages.success(request, "Заказ обновлен!")
+                    return redirect('order_list')
+            except Exception as e:
+                messages.error(request, f"Ошибка: {str(e)}")
     else:
         order_form = OrderForm(instance=order)
 
     return render(request, 'directory/edit_order.html', {
         'order_form': order_form,
-        'products': products,
-        'order_items': order_items,
+        'order': order,
+        'order_items': order.orderitem_set.all(),
+        'products': Products.objects.all(),
     })
 
 
 def order_list(request):
-    # Получаем текущую дату для предзаполнения формы
     today = timezone.now().date()
-
-    # Инициализируем переменные для фильтрации
     start_date = today
     end_date = today
+    status_filter = None
 
-    # Если форма фильтрации отправлена
+    # Обработка формы фильтрации по дате (POST)
+    date_form = DateRangeForm(request.POST or None, initial={'start_date': today, 'end_date': today})
     if request.method == 'POST' and 'date_range_form' in request.POST:
-        form = DateRangeForm(request.POST)
-        if form.is_valid():
-            start_date = form.cleaned_data['start_date']
-            end_date = form.cleaned_data['end_date']
-    else:
-        # Если форма фильтрации не отправлена, используем текущую дату
-        form = DateRangeForm(initial={'start_date': today, 'end_date': today})
+        if date_form.is_valid():
+            start_date = date_form.cleaned_data['start_date']
+            end_date = date_form.cleaned_data['end_date']
+            # Конвертируем даты в строки для редиректа
+            return redirect(f"{request.path}?start_date={start_date}&end_date={end_date}")
 
-    # Фильтруем заказы по диапазону дат
-    orders = OrderTable.objects.filter(date__range=(start_date, end_date)).annotate(total_sum=Sum('orderitem__sum'))
-    total_order_sum = orders.aggregate(total=Sum("total_sum"))['total'] or 0
+    # Обработка GET-параметров (если переданы в URL)
+    if 'start_date' in request.GET and 'end_date' in request.GET:
+        try:
+            # Преобразуем строки из GET-запроса в date объекты
+            start_date = datetime.datetime.strptime(request.GET['start_date'], '%Y-%m-%d').date()
+            end_date = datetime.datetime.strptime(request.GET['end_date'], '%Y-%m-%d').date()
+            # Обновляем initial данные формы
+            date_form.initial = {'start_date': start_date, 'end_date': end_date}
+        except (ValueError, TypeError):
+            # В случае ошибки оставляем значения по умолчанию
+            start_date = today
+            end_date = today
 
-    # Обработка формы редактирования статуса
+    # Обработка фильтра по статусу (GET)
+    filter_form = OrderFilterForm(request.GET or None)
+    if filter_form.is_valid():
+        status_filter = filter_form.cleaned_data.get('status')
+
+    # Фильтрация заказов с учетом timezone
+    orders = OrderTable.objects.filter(
+        date__date__gte=start_date,
+        date__date__lte=end_date
+    ).order_by('-date')
+
+    if status_filter:
+        orders = orders.filter(status=status_filter)
+
+    # Аннотация суммы
+    orders = orders.annotate(total_sum=Sum('orderitem__sum'))
+
+    # Общая сумма оплаченных заказов
+    total_paid_sum = orders.filter(status='paid').aggregate(total=Sum('total_sum'))['total'] or 0
+
+    # Обработка изменения статуса (POST)
     if request.method == 'POST' and 'order_id' in request.POST:
         order_id = request.POST.get('order_id')
         order = get_object_or_404(OrderTable, id=order_id)
-        new_status = request.POST.get('status')  # Получаем новый статус из формы
-        order.status = new_status  # Обновляем статус
-        order.save()  # Сохраняем изменения
-        return redirect('order_list')  # Перенаправляем на список заказов
-    # Перенаправляем на список заказов
-    status_choices = OrderTable.STATUS_CHOICES
+        new_status = request.POST.get('status')
+        order.status = new_status
+        order.save()
+        return redirect('order_list')
 
-    return render(request, 'directory/order_list.html', {
-        'orders': orders,
-        'total_order_sum': total_order_sum,
-        'form': form,  # Форма фильтрации по дате
-        'start_date': start_date,
-        'end_date': end_date,
-        'status_choices': status_choices,
-    })
+    # Пагинация
+    paginator = Paginator(orders, 10)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'start_date': start_date.strftime('%Y-%m-%d') if isinstance(start_date, datetime.date) else start_date,
+        'end_date': end_date.strftime('%Y-%m-%d') if isinstance(end_date, datetime.date) else end_date,
+        'page_obj': page_obj,
+        'filter_form': filter_form,
+        'date_form': date_form,
+        'total_order_sum': total_paid_sum,
+        'status_choices': OrderTable.STATUS_CHOICES,
+    }
+    return render(request, 'directory/order_list.html', context)
 
 
-def update_order_status(request, order_id, status):
-    """Изменение статуса заказа."""
-    order = get_object_or_404(OrderTable, id=order_id)
-    order.status = status
-    order.save()
+def mark_order_as_paid(request, order_id):
+    try:
+        order = get_object_or_404(OrderTable, id=order_id)
+        if order.status != 'paid':
+            with transaction.atomic():
+                order.status = 'paid'
+                order.save()
+                logger.info(f"Заказ {order_id} оплачен")
+                messages.success(request, "Заказ оплачен")
+        else:
+            messages.warning(request, "Заказ уже оплачен")
+    except Exception as e:
+        logger.error(f"Ошибка оплаты заказа {order_id}: {str(e)}")
+        messages.error(request, "Ошибка оплаты")
     return redirect('order_list')
 
-# Create your views here.
+
+def cancel_order(request, order_id):
+    order = get_object_or_404(OrderTable, id=order_id)
+    if order.status == 'paid':
+        order.status = 'canceled'
+        order.save()
+        messages.success(request, "Заказ отменен. ПКО удален.")
+    elif order.status == 'unpaid':
+        order.status = 'canceled'
+        order.save()
+        messages.success(request, "Неоплаченный заказ отменен.")
+    else:
+        messages.warning(request, "Заказ уже отменен.")
+    return redirect('order_list')
+
+
+@require_POST
+def update_order_status(request, order_id):
+    order = get_object_or_404(OrderTable, id=order_id)
+    new_status = request.POST.get('status')
+
+    if new_status in dict(OrderTable.STATUS_CHOICES).keys():
+        order.status = new_status
+        order.save()
+        messages.success(request, f"Статус заказа #{order_id} обновлен на {order.get_status_display()}")
+    else:
+        messages.error(request, "Недопустимый статус")
+
+    return redirect('order_list')
