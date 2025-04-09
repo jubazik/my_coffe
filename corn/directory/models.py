@@ -1,6 +1,3 @@
-import logging
-from django.utils import timezone
-
 from django.db import models
 from django.db.models import Sum
 from django.core.validators import MinValueValidator
@@ -53,8 +50,6 @@ class Products(models.Model):
         verbose_name_plural = 'Товары'
 
 
-logger = logging.getLogger(__name__)
-
 class OrderTable(models.Model):
     STATUS_CHOICES = [
         ('paid', 'Оплачено'),
@@ -62,29 +57,46 @@ class OrderTable(models.Model):
         ('canceled', 'Отменено'),
     ]
 
-    date = models.DateTimeField(default=timezone.now)
-    table = models.ForeignKey('Table', on_delete=models.PROTECT)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='unpaid')
+    date = models.DateField(auto_now_add=True, verbose_name='Дата и время')
+    table = models.ForeignKey(Table, on_delete=models.PROTECT, blank=True)
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='unpaid',
+        verbose_name='Статус'
+    )
+    products = models.ManyToManyField(Products, through='OrderItem', verbose_name='Товары')
 
     def __str__(self):
-        return f'Заказ #{self.id}'
+        return f'Заказ {self.id} на столе {self.table}'
 
     def total_sum(self):
         return self.orderitem_set.aggregate(total=Sum('sum'))['total'] or 0
 
+    def products_list(self):
+        return ", ".join([item.product.name for item in self.orderitem_set.all()])
+
+    products_list.short_description = 'Товары'
+
     def save(self, *args, **kwargs):
-        old_status = None
-        if self.pk:
-            old_status = OrderTable.objects.get(pk=self.pk).status
+        # Проверяем, был ли изменён статус на "оплачено"
+        if self.status == 'paid':
+            # Проверяем, существует ли уже кассовый ордер для этого заказа
+            if not hasattr(self, 'cashreceiptorder_order'):
+                # Создаем кассовый ордер
+                CashReceiptOrder.objects.create(
+                    order=self,
+                    sum=self.total_sum()
+                )
 
         super().save(*args, **kwargs)
 
-        if self.status == 'paid' and old_status != 'paid':
-            CashReceiptOrder.objects.create(order=self, sum=self.total_sum())
-            logger.info(f"Создан ПКО для заказа {self.id}")
-        elif self.status in ['canceled', 'unpaid'] and old_status == 'paid':
-            CashReceiptOrder.objects.filter(order=self).delete()
-            logger.info(f"Удален ПКО для заказа {self.id}")
+
+    class Meta:
+        verbose_name = 'Стол заказов'
+        verbose_name_plural = 'Столы заказов'
+
+
 class OrderItem(models.Model):
     order = models.ForeignKey(OrderTable, on_delete=models.CASCADE, verbose_name='Заказ')
     product = models.ForeignKey(Products, on_delete=models.PROTECT, verbose_name='Товар')
@@ -105,12 +117,22 @@ class OrderItem(models.Model):
         verbose_name_plural = 'Элементы заказа'
 
 class CashReceiptOrder(models.Model):
-    date = models.DateTimeField(auto_now_add=True)
-    order = models.ForeignKey(OrderTable, on_delete=models.CASCADE, related_name='cash_orders')
-    sum = models.DecimalField(max_digits=10, decimal_places=2)
+    date = models.DateField(auto_now_add=True, verbose_name="Дата")
+    order = models.ForeignKey(OrderTable, on_delete=models.CASCADE, related_name='cashoeceiptorder_table',
+                             verbose_name='Заказ', editable=False)
+    sum = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма", editable=False)
 
     def __str__(self):
-        return f"ПКО №{self.id} (заказ {self.order.id})"
+        return f"{self.date}, {self.order}, {self.sum}"
+
+    def save(self, *args, **kwargs):
+        # Проверяем, что статус заказа "оплачено"
+        if self.order.status == "paid":
+            # Записываем общую сумму заказа
+            self.sum = self.order.total_sum()
+            super().save(*args, **kwargs)
+        else:
+            raise ValueError("Кассовый ордер можно создать только для оплаченного заказа.")
 
     class Meta:
         verbose_name = "Приходный кассовый ордер"
