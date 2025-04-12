@@ -87,20 +87,20 @@
                                 <i class="bi bi-person-circle"></i> {{ user.username }}
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="#">
+                                <li><a class="dropdown-item" href="{% url 'myauth:about-me' %}">
                                     <i class="bi bi-person"></i> Профиль
                                 </a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="#">
+                                <li><a class="dropdown-item" href="{% url 'myauth:logout'%}">
                                     <i class="bi bi-box-arrow-right"></i> Выйти
                                 </a></li>
                             </ul>
                         </div>
                     {% else %}
-                        <a href="#" class="btn btn-outline-light me-2">
+                        <a href="{% url 'myauth:login' %}" class="btn btn-outline-light me-2">
                             <i class="bi bi-box-arrow-in-right"></i> Войти
                         </a>
-                        <a href="#" class="btn btn-light">
+                        <a href="{% url 'myauth:register' %}" class="btn btn-light">
                             <i class="bi bi-person-plus"></i> Регистрация
                         </a>
                     {% endif %}
