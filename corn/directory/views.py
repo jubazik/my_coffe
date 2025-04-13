@@ -92,6 +92,7 @@ def create_order(request):
         'products': products,
     })
 
+
 def edit_order(request, order_id):
     order = get_object_or_404(OrderTable, id=order_id)
 
@@ -100,8 +101,10 @@ def edit_order(request, order_id):
         if order_form.is_valid():
             try:
                 with transaction.atomic():
-                    # Сохраняем форму - кассовый ордер создастся/удалится автоматически через save()
-                    order_form.save()
+                    # Сохраняем заказ (это вызовет save() модели)
+                    order = order_form.save()
+
+                    # Обновляем элементы заказа
                     order.orderitem_set.all().delete()
 
                     product_counts = {}
@@ -111,7 +114,6 @@ def edit_order(request, order_id):
                                 index = key.split('-')[1]
                                 product_id = value
                                 count = int(request.POST.get(f'count-{index}', 0))
-
                                 if count > 0:
                                     product_counts[product_id] = product_counts.get(product_id, 0) + count
                             except (ValueError, IndexError):
@@ -127,19 +129,13 @@ def edit_order(request, order_id):
                             sum=product.price * count
                         )
 
+                    # Явно сохраняем заказ, чтобы триггернулся save()
+                    order.save()
+
                     messages.success(request, "Заказ обновлен!")
                     return redirect('order_list')
             except Exception as e:
                 messages.error(request, f"Ошибка: {str(e)}")
-    else:
-        order_form = OrderForm(instance=order)
-
-    return render(request, 'directory/edit_order.html', {
-        'order_form': order_form,
-        'order': order,
-        'order_items': order.orderitem_set.all(),
-        'products': Products.objects.all(),
-    })
 
 
 @permission_required('orders.view_order', raise_exception=True)
