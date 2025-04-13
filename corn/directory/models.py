@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import Sum
 from django.core.validators import MinValueValidator
+from django.utils import timezone
 
 #
 class Table(models.Model):
@@ -57,7 +58,7 @@ class OrderTable(models.Model):
         ('canceled', 'Отменено'),
     ]
 
-    date = models.DateField(auto_now_add=True, verbose_name='Дата и время')
+    date = models.DateTimeField(default=timezone.now, verbose_name='Дата и время')
     table = models.ForeignKey(Table, on_delete=models.PROTECT, blank=True)
     status = models.CharField(
         max_length=10,
@@ -79,18 +80,20 @@ class OrderTable(models.Model):
     products_list.short_description = 'Товары'
 
     def save(self, *args, **kwargs):
-        # Проверяем, был ли изменён статус на "оплачено"
-        if self.status == 'paid':
-            # Проверяем, существует ли уже кассовый ордер для этого заказа
-            if not hasattr(self, 'cashreceiptorder_order'):
-                # Создаем кассовый ордер
-                CashReceiptOrder.objects.create(
-                    order=self,
-                    sum=self.total_sum()
-                )
+        # Получаем текущее состояние объекта (если он уже существует)
+        if self.pk:
+            old_status = OrderTable.objects.get(pk=self.pk).status
+        else:
+            old_status = None
 
+        # Сохраняем объект
         super().save(*args, **kwargs)
 
+        # Проверяем изменения статуса
+        if old_status != self.status:
+            if old_status == 'paid' and self.status in ['unpaid', 'canceled']:
+                # Удаляем кассовый ордер при изменении статуса с оплачено на неоплачено/отменено
+                self.cashreceiptorder_order.all().delete()
 
     class Meta:
         verbose_name = 'Стол заказов'
@@ -117,8 +120,8 @@ class OrderItem(models.Model):
         verbose_name_plural = 'Элементы заказа'
 
 class CashReceiptOrder(models.Model):
-    date = models.DateField(auto_now_add=True, verbose_name="Дата")
-    order = models.ForeignKey(OrderTable, on_delete=models.CASCADE, related_name='cashoeceiptorder_table',
+    date = models.DateTimeField(auto_now_add=True, verbose_name="Дата")
+    order = models.ForeignKey(OrderTable, on_delete=models.CASCADE, related_name='cashreceiptorder_order',
                              verbose_name='Заказ', editable=False)
     sum = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма", editable=False)
 
@@ -126,13 +129,13 @@ class CashReceiptOrder(models.Model):
         return f"{self.date}, {self.order}, {self.sum}"
 
     def save(self, *args, **kwargs):
-        # Проверяем, что статус заказа "оплачено"
-        if self.order.status == "paid":
-            # Записываем общую сумму заказа
-            self.sum = self.order.total_sum()
-            super().save(*args, **kwargs)
-        else:
+        if self.order.status != "paid":
             raise ValueError("Кассовый ордер можно создать только для оплаченного заказа.")
+
+        if self.sum <= 0:
+            raise ValueError("Сумма кассового ордера должна быть больше 0.")
+
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Приходный кассовый ордер"

@@ -8,7 +8,8 @@ from django.views.generic import TemplateView, CreateView
 
 
 class AboutMeView(TemplateView): #Создал для проверки  регистрации и авторизации
-    template_name = "myauth/about-me.html"
+    template_name = "base.html"
+
 
 class RegisterView(CreateView):
     form_class = UserCreationForm

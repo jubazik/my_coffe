@@ -13,14 +13,13 @@ from .views import (
 
 app_name = 'myauth'
 urlpatterns = [
-    path('login/', LoginView.as_view(
+    path('', LoginView.as_view(
         template_name='myauth/login.html',
         redirect_authenticated_user=True,
     ),
          name='login'),
 
-    path('logout/', logout_view, name='logout'),
-    path('login/', login_view, name='login'),
+    path('logout', logout_view, name='logout'),
     path('about-me/', AboutMeView.as_view(), name='about-me'),
     path('register/', RegisterView.as_view(), name='register'),
     path('cookie/get/', get_cookie_view, name='cookie_get'),

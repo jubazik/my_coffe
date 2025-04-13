@@ -45,9 +45,11 @@ def create_order(request):
             try:
                 with transaction.atomic():
                     order = order_form.save(commit=False)
-                    order.status = 'unpaid'
-                    order.save()
+                    if 'status' not in order_form.cleaned_data or not order_form.cleaned_data['status']:
+                        order.status = 'unpaid'
+                    order.save()  # Сначала сохраняем заказ
 
+                    # Создаём элементы заказа (OrderItem)
                     product_counts = {}
                     for key, value in request.POST.items():
                         if key.startswith('product-'):
@@ -71,6 +73,13 @@ def create_order(request):
                             sum=product.price * count
                         )
 
+                    # Если статус "оплачено", создаём кассовый ордер после создания OrderItem
+                    if order.status == 'paid':
+                        CashReceiptOrder.objects.create(
+                            order=order,
+                            sum=order.total_sum()  # Теперь сумма будет правильной
+                        )
+
                     messages.success(request, "Заказ создан!")
                     return redirect('order_list')
             except Exception as e:
@@ -83,19 +92,15 @@ def create_order(request):
         'products': products,
     })
 
-
 def edit_order(request, order_id):
     order = get_object_or_404(OrderTable, id=order_id)
-
-    if order.status != 'unpaid':
-        messages.error(request, "Редактирование возможно только для неоплаченных заказов")
-        return redirect('order_list')
 
     if request.method == 'POST':
         order_form = OrderForm(request.POST, instance=order)
         if order_form.is_valid():
             try:
                 with transaction.atomic():
+                    # Сохраняем форму - кассовый ордер создастся/удалится автоматически через save()
                     order_form.save()
                     order.orderitem_set.all().delete()
 

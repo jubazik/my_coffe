@@ -129,10 +129,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-LOGIN_REDIRECT_URL = reverse_lazy('myauth:about-me')
+LOGIN_REDIRECT_URL = reverse_lazy('order_list')
 
 # Формат даты для полей DateField
-USE_L10N = False
+USE_L10N = True
 DATE_FORMAT = 'd.m.Y'
 DATE_INPUT_FORMATS = ['%d.%m.%Y', '%Y-%m-%d']
 
