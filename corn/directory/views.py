@@ -3,11 +3,12 @@ import logging
 from django.contrib.auth.decorators import permission_required
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Avg
 from django.utils import timezone
 from django.contrib import messages
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
 from .forms import OrderForm, DateRangeForm, ProductForm, OrderFilterForm, OrderItemForm
@@ -141,34 +142,24 @@ def edit_order(request, order_id):
 @permission_required('orders.view_order', raise_exception=True)
 def order_list(request):
     today = timezone.now().date()
+
+    # Инициализация форм с GET-параметрами
+    filter_form = OrderFilterForm(request.GET or None)
+    date_form = DateRangeForm(request.GET or None, initial={'start_date': today, 'end_date': today})
+
+    # Обработка фильтров
     start_date = today
     end_date = today
     status_filter = None
 
-    # Обработка формы фильтрации по дате (POST)
-    date_form = DateRangeForm(request.POST or None, initial={'start_date': today, 'end_date': today})
-    if request.method == 'POST' and 'date_range_form' in request.POST:
-        if date_form.is_valid():
-            start_date = date_form.cleaned_data['start_date']
-            end_date = date_form.cleaned_data['end_date']
-            return redirect(f"{request.path}?start_date={start_date}&end_date={end_date}")
-
-    # Обработка GET-параметров дат
-    if 'start_date' in request.GET and 'end_date' in request.GET:
-        try:
-            start_date = datetime.datetime.strptime(request.GET['start_date'], '%Y-%m-%d').date()
-            end_date = datetime.datetime.strptime(request.GET['end_date'], '%Y-%m-%d').date()
-            date_form.initial = {'start_date': start_date, 'end_date': end_date}
-        except (ValueError, TypeError, KeyError):
-            start_date = today
-            end_date = today
-
-    # Обработка фильтра по статусу (GET)
-    filter_form = OrderFilterForm(request.GET or None)
     if filter_form.is_valid():
         status_filter = filter_form.cleaned_data.get('status')
 
-    # Фильтрация заказов с учетом времени (для DateTimeField)
+    if date_form.is_valid():
+        start_date = date_form.cleaned_data['start_date']
+        end_date = date_form.cleaned_data['end_date']
+
+    # Фильтрация заказов
     start_datetime = datetime.datetime.combine(start_date, datetime.time.min)
     end_datetime = datetime.datetime.combine(end_date, datetime.time.max)
 
@@ -180,17 +171,15 @@ def order_list(request):
     if status_filter:
         orders = orders.filter(status=status_filter)
 
-    # Оптимизированная аннотация суммы с prefetch_related
+    # Аннотация и агрегация
     orders = orders.prefetch_related('orderitem_set').annotate(
         total_sum=Sum('orderitem__sum')
     )
-
-    # Общая сумма оплаченных заказов
     total_paid_sum = orders.filter(status='paid').aggregate(
         total=Sum('total_sum')
     )['total'] or 0
 
-    # Обработка изменения статуса с проверкой прав
+    # Обработка изменения статуса
     if request.method == 'POST' and 'order_id' in request.POST:
         if not request.user.has_perm('orders.change_order'):
             return HttpResponseForbidden("У вас нет прав на изменение заказов")
@@ -210,8 +199,6 @@ def order_list(request):
     page_obj = paginator.get_page(page_number)
 
     context = {
-        'start_date': start_date.strftime('%Y-%m-%d'),
-        'end_date': end_date.strftime('%Y-%m-%d'),
         'page_obj': page_obj,
         'filter_form': filter_form,
         'date_form': date_form,
@@ -219,7 +206,6 @@ def order_list(request):
         'status_choices': OrderTable.STATUS_CHOICES,
     }
     return render(request, 'directory/order_list.html', context)
-
 def mark_order_as_paid(request, order_id):
     try:
         order = get_object_or_404(OrderTable, id=order_id)
@@ -252,19 +238,40 @@ def cancel_order(request, order_id):
     return redirect('order_list')
 
 
+@ensure_csrf_cookie
 @require_POST
 def update_order_status(request, order_id):
+    if not request.user.has_perm('orders.change_order'):
+        return HttpResponseForbidden("У вас нет прав на изменение заказов")
+
     order = get_object_or_404(OrderTable, id=order_id)
     new_status = request.POST.get('status')
 
-    if new_status in dict(OrderTable.STATUS_CHOICES).keys():
-        order.status = new_status
-        order.save()
-        messages.success(request, f"Статус заказа #{order_id} обновлен на {order.get_status_display()}")
-    else:
-        messages.error(request, "Недопустимый статус")
+    if new_status not in dict(OrderTable.STATUS_CHOICES).keys():
+        return JsonResponse({'error': 'Недопустимый статус'}, status=400)
 
-    return redirect('order_list')
+    order.status = new_status
+    order.save()
+
+    return JsonResponse({
+        'success': True,
+        'new_status': order.get_status_display(),
+        'order_id': order_id
+    })
+
+
 def cashreceiptorderviews(request):
-    pay = CashReceiptOrder.objects.all()
-    return render(request, 'directory/pay.html', {"pay" : pay})
+    pay_list = CashReceiptOrder.objects.all().order_by('-date')
+
+    # Пагинация
+    paginator = Paginator(pay_list, 10)  # 10 элементов на страницу
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Общая сумма всех ПКО
+    total_sum = pay_list.aggregate(total=Sum('sum'))['total'] or 0
+
+    return render(request, 'directory/pko_list.html', {
+        'page_obj': page_obj,
+        'total_sum': total_sum
+    })

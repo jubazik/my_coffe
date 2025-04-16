@@ -55,79 +55,32 @@
 </head>
 <body>
     <!-- Навигационная панель -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'order_list' %}">
-                <i class="bi bi-box-seam"></i> Zero
-            </a>
-
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse" id="navbarContent">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'create_order' %}">
-                            <i class="bi bi-list-ul"></i> Новый заказ
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'pay_list' %}">
-                            <i class="bi bi-box-seam"></i> ПКО
-                        </a>
-                    </li>
-                </ul>
-
-                <div class="d-flex">
-                    {% if user.is_authenticated %}
-                        <div class="dropdown">
-                            <button class="btn btn-outline-light dropdown-toggle" type="button" id="userMenu"
-                                    data-bs-toggle="dropdown">
-                                <i class="bi bi-person-circle"></i> {{ user.username }}
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item" href="{% url 'myauth:about-me' %}">
-                                    <i class="bi bi-person"></i> Профиль
-                                </a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'myauth:logout'%}">
-                                    <i class="bi bi-box-arrow-right"></i> Выйти
-                                </a></li>
-                            </ul>
-                        </div>
-                    {% else %}
-                        <a href="{% url 'myauth:login' %}" class="btn btn-outline-light me-2">
-                            <i class="bi bi-box-arrow-in-right"></i> Войти
-                        </a>
-                        <a href="{% url 'myauth:register' %}" class="btn btn-light">
-                            <i class="bi bi-person-plus"></i> Регистрация
-                        </a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </nav>
 
     <!-- Основное содержимое -->
     <main class="main-content">
         <div class="container fade-in">
-            <!-- Системные сообщения -->
-            {% if messages %}
-            <div class="mb-4">
-                {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            {% if user.is_authenticated %}
+                <!-- Системные сообщения -->
+                {% if messages %}
+                <div class="mb-4">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
+                {% endif %}
+                {% include 'inc/nav_.html' %}
+                <!-- Блок контента -->
+                {% block content %} CONTENT {% endblock %}
+            {% else %}
+                <div class="alert alert-warning text-center">
+                    <h4>Доступ запрещен</h4>
+                    <p>Для просмотра этой страницы необходимо <a href="{% url 'myauth:login' %}" class="alert-link">войти в систему</a>.</p>
+                </div>
             {% endif %}
-
-            <!-- Блок контента -->
-            {% block content %} CONTETN {% endblock %}
         </div>
-    </main>
 
     <!-- Подвал -->
     <footer class="footer">

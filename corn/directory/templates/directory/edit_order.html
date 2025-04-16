@@ -1,8 +1,9 @@
 {% extends 'base.html' %}  <!-- если есть базовый шаблон -->
 
-    <title>{% block title %}{% if order_id %}Редактирование заказа{% else %}Создание заказа{% endif %}{% endblock %}</title>
 
 {% block content %}
+    <title>{% block title %}{% if order_id %}Редактирование заказа{% else %}Создание заказа{% endif %}{% endblock %}</title>
+
 
     <h1>{% if order_id %}Редактирование заказа{% else %}Создание заказа{% endif %}</h1>
 

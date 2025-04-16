@@ -51,7 +51,7 @@ class ExpenseOrderDetailView(LoginRequiredMixin, DetailView):
 class ExpenseOrderApproveView(LoginRequiredMixin, UpdateView):
     model = ExpenseOrder
     form_class = ExpenseOrderApproveForm
-    template_name = 'all_orders/expense_order_approve.html'
+    template_name = 'all_orders/approver.html'
     success_url = reverse_lazy('expense_order_list')
 
     def form_valid(self, form):

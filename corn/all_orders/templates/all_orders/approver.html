@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Утверждение расходного ордера</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Информация об ордере</h4>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>Номер ордера:</strong> {{ object.id }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Дата создания:</strong> {{ object.date|date:"d.m.Y" }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p><strong>Создал:</strong> {{ object.created_by.get_full_name }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Сумма:</strong> {{ object.amount }} руб.</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <p><strong>Описание:</strong> {{ object.description }}</p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <h5>Данные для утверждения</h5>
+                        {{ form.as_p }}
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'expense_order_list' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад к списку
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> Утвердить ордер
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

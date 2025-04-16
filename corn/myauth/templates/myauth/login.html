@@ -1,42 +1,59 @@
-{% extends "base.html" %}
+{% extends "myauth/base.html" %}
 
-{% block title %}
-    Login
-{% endblock %}
-
+{% block title %}Login{% endblock %}
 
 {% block content %}
-    <form method="post">
-        {% csrf_token %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow-sm">
+            <div class="card-body p-4">
+                <h2 class="text-center mb-4">Логин участника</h2>
 
+                {% if error %}
+                <div class="alert alert-danger">
+                    {{ error }}
+                </div>
+                {% endif %}
 
-        {{ form.as_p }}
-{#        {% if error %}#}
-{#            <p style="color: red">#}
-{#                {{ error }}#}
-{#            </p>#}
-{#        {% endif %}#}
-{##}
-{#        <p>#}
-{#            <label for="username">Username:</label>#}
-{#            <input type="text" id="username" name="username" required>#}
-{#        </p>#}
-{#        <p>#}
-{#            <label for="password">Password:</label>#}
-{#            <input type="text" id="password" name="password" required>#}
-{#        </p>#}
+                <form method="post">
+                    {% csrf_token %}
 
-{#        <button type="submit">Вход</button>#}
-        <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Войти</button>
-        <button type="button" onclick="location.href='{% url 'myauth:register' %}'"
-                class="btn btn-secondary">
-            Регистрация
-        </button>
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text"
+                               class="form-control"
+                               id="username"
+                               name="username"
+                               placeholder="Enter your Username"
+                               required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password"
+                               class="form-control"
+                               id="password"
+                               name="password"
+                               placeholder="Enter your Password"
+                               required>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="remember">
+                        <label class="form-check-label" for="remember">Remember me</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2 mb-3">
+                        <strong>Авторизоваться</strong>
+                    </button>
+
+                    <div class="text-center">
+                        <p class="mb-1">У вас нет аккаунта? <a href="{% url 'myauth:register' %}">Зарегистрироваться</a></p>
+                        <p><a href="{#">Забыл пароль?</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
-
-
-
-
-    </form>
+</div>
 {% endblock %}

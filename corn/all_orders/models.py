@@ -14,7 +14,7 @@ class ExpenseOrder(models.Model):
 
     number = models.CharField('Номер ордера', max_length=50, unique=True)
     date = models.DateField('Дата ордера', default=timezone.now)
-    recipient = models.ForeignKey(Counterparties, on_delete=models.PROTECT, verbose_name='Получатель')
+    recipient = models.ForeignKey(Counterparties, on_delete=models.CASCADE, verbose_name='Получатель')
     amount = models.DecimalField('Сумма', max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     basis = models.TextField('Основание')
     comment = models.TextField('Комментарий', blank=True)
@@ -36,10 +36,6 @@ class ExpenseOrder(models.Model):
         blank=True
     )
 
-    class Meta:
-        verbose_name = 'Расходный кассовый ордер'
-        verbose_name_plural = 'Расходные кассовые ордера'
-        ordering = ['-date', '-number']
 
     def __str__(self):
         return f'Расходный ордер №{self.number} от {self.date}'
@@ -51,3 +47,8 @@ class ExpenseOrder(models.Model):
             last_number = int(last_order.number.split('/')[-1]) if last_order else 0
             self.number = f'РКО-{self.date.strftime("%Y%m%d")}/{last_number + 1}'
         super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = 'Расходный кассовый ордер'
+        verbose_name_plural = 'Расходные кассовые ордера'
+        ordering = ['-date', '-number']

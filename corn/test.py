@@ -50,3 +50,7 @@ def using_urgency_level(task_):
 
 task_text.sort(key=using_urgency_level, reverse=True)
 print(task_text)
+
+class Task:
+    def __init__(self, title, desc, urgency):
+        pass
