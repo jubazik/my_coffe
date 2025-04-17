@@ -253,11 +253,13 @@ def update_order_status(request, order_id):
     order.status = new_status
     order.save()
 
-    return JsonResponse({
-        'success': True,
-        'new_status': order.get_status_display(),
-        'order_id': order_id
-    })
+    return redirect('order_list')
+
+    # return JsonResponse({
+    #     'success': True,
+    #     'new_status': order.get_status_display(),
+    #     'order_id': order_id
+    # })
 
 
 def cashreceiptorderviews(request):
