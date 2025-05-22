@@ -1,85 +1,121 @@
-{% extends 'base.html' %}  <!-- если есть базовый шаблон -->
-
+{% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block content %}
-    <title>{% block title %}{% if order_id %}Редактирование заказа{% else %}Создание заказа{% endif %}{% endblock %}</title>
+<div class="container-fluid">
+    <h2 class="mb-4">{% if mode == 'create' %}Создание нового заказа{% else %}Редактирование заказа #{{ order_id }}{% endif %}</h2>
 
-
-    <h1>{% if order_id %}Редактирование заказа{% else %}Создание заказа{% endif %}</h1>
-
-    <!-- Уведомления -->
     {% if messages %}
-        <div class="messages">
-
-                <div class="{{ message.tags }}">{{ message }}</div>
-        </div>
+    <div class="messages">
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    </div>
     {% endif %}
 
-    <form method="post">
+    <form method="post" class="order-form">
         {% csrf_token %}
 
-        <!-- Основные данные заказа -->
-        <div>
-            {{ order_form.table.label_tag }} {{ order_form.table }}
-        </div>
-        <div>
-            {{ order_form.status.label_tag }} {{ order_form.status }}
-        </div>
-
-        <!-- Динамические поля для товаров -->
-        <div id="product-forms">
-            {% for item in order_items %}
-                <div class="product-form">
-                    <div>
-                        <label>Товар:</label>
-                        <select name="product-{{ forloop.counter0 }}" required>
-                            {% for product in products %}
-                                <option value="{{ product.id }}" {% if product.id == item.product.id %}selected{% endif %}>{{ product.name }} ({{ product.price }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label>Количество:</label>
-                        <input type="number" name="count-{{ forloop.counter0 }}" min="1" value="{{ item.count }}" required>
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">Основная информация</div>
+                    <div class="card-body">
+                        <div class="form-group">
+                            <label>{{ order_form.table.label }}</label>
+                            {{ order_form.table }}
+                        </div>
+                        <div class="form-group">
+                            <label>{{ order_form.status.label }}</label>
+                            {{ order_form.status }}
+                        </div>
                     </div>
                 </div>
-            {% endfor %}
+            </div>
         </div>
 
-        <!-- Кнопка для добавления нового товара -->
-        <button type="button" id="add-product" class="add-product">Добавить товар</button>
-
-        <!-- Кнопка для сохранения заказа -->
-        <button type="submit">Сохранить заказ</button>
-
-            <a href="{% url 'order_list' %}">Вернуться к списку заказов</a>
-
-    </form>
-
-    <script>
-        // JavaScript для добавления новых полей товаров
-        document.getElementById('add-product').addEventListener('click', function() {
-            const productForms = document.getElementById('product-forms');
-            const index = productForms.children.length;
-
-            const newForm = document.createElement('div');
-            newForm.classList.add('product-form');
-            newForm.innerHTML = `
-                <div>
-                    <label>Товар:</label>
-                    <select name="product-${index}" required>
-                        {% for product in products %}
-                            <option value="{{ product.id }}">{{ product.name }} ({{ product.price }})</option>
+        <div class="card mb-4">
+            <div class="card-header">Товары в заказе</div>
+            <div class="card-body">
+                {% for category, cat_products in categories.items %}
+                <div class="category-section mb-4">
+                    <h5>{{ category }}</h5>
+                    <div class="row">
+                        {% for product in cat_products %}
+                        <div class="col-md-3 mb-3">
+                            <div class="product-card card h-100">
+                                <div class="card-body">
+                                    <h6 class="card-title">{{ product.name }}</h6>
+                                    <p class="card-text text-muted">{{ product.price }} ₽</p>
+                                    <div class="input-group">
+                                        <input type="number"
+                                               name="count-{{ product.id }}"
+                                               class="form-control product-quantity"
+                                               min="0"
+                                               value="{{ order_quantities|get_item:product.id|default:0 }}"
+                                               data-price="{{ product.price }}">
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">шт.</span>
+                                        </div>
+                                    </div>
+                                    <input type="hidden" name="product-{{ product.id }}" value="{{ product.id }}">
+                                </div>
+                            </div>
+                        </div>
                         {% endfor %}
-                    </select>
+                    </div>
                 </div>
-                <div>
-                    <label>Количество:</label>
-                    <input type="number" name="count-${index}" min="1" value="1" required>
-                </div>
-            `;
+                {% endfor %}
+            </div>
+        </div>
 
-            productForms.appendChild(newForm);
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Сохранить заказ</button>
+            <a href="{% url 'order_list' %}" class="btn btn-secondary">Отмена</a>
+        </div>
+    </form>
+</div>
+
+<style>
+    .product-card {
+        transition: all 0.3s;
+    }
+    .product-card:hover {
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    .category-section {
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+    }
+</style>
+
+<script>
+    // Динамический расчет суммы при изменении количества
+    document.querySelectorAll('.product-quantity').forEach(input => {
+        input.addEventListener('change', function() {
+            const price = parseFloat(this.dataset.price);
+            const quantity = parseInt(this.value) || 0;
+            const sum = price * quantity;
+            // Можно добавить отображение суммы под каждым товаром
         });
-    </script>
+    });
+
+    // Подсветка выбранных товаров
+    document.querySelectorAll('.product-quantity').forEach(input => {
+        input.addEventListener('change', function() {
+            const card = this.closest('.product-card');
+            if (parseInt(this.value) > 0) {
+                card.style.border = '2px solid #28a745';
+            } else {
+                card.style.border = '1px solid rgba(0,0,0,.125)';
+            }
+        });
+
+        // Инициализация подсветки при загрузке
+        if (parseInt(input.value) > 0) {
+            input.closest('.product-card').style.border = '2px solid #28a745';
+        }
+    });
+</script>
 {% endblock %}
