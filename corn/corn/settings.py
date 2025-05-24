@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 import os
 from pathlib import Path
 
+from django.contrib.sessions.backends import db
 from django.urls import reverse_lazy
 import psycopg2
 print(psycopg2.__file__)
@@ -27,6 +28,7 @@ SECRET_KEY = 'django-insecure-)j5f+^!yq9hk1fu%d0_9!33*jf4c836=fh3c=rff94idmd&-a2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# ALLOWED_HOSTS = ['buhobed.ru', 'localhost', 'web', '127.0.0.1']  # 'web' - имя сервиса в Docker
 ALLOWED_HOSTS = []
 
 # Application definition
@@ -79,22 +81,25 @@ WSGI_APPLICATION = 'corn.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': db.sqlite3 / 'db.sqlite3',
-#     }
-# }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'base',
-        'USER': 'youruser',  # Ваше системное имя или созданный пользователь
-        'PASSWORD': 'shuher123',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'base',
+#         'USER': 'juba',
+#         'PASSWORD': 'shuher123',
+#         'HOST': 'db',  # Имя сервиса из docker-compose
+#         'PORT': '5432',
+#         'OPTIONS': {
+#             'connect_timeout': 5
+#         }
+#     }
+# }
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -126,8 +131,9 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
-
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'https://buhobed.ru']
 STATIC_URL = 'static/'
+# STATIC_ROOT = '/app/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 MEDIA_URL = '/media/'
@@ -137,7 +143,8 @@ LOGIN_REDIRECT_URL = reverse_lazy('order_list')
 CSRF_COOKIE_SECURE = False  # Для разработки
 CSRF_COOKIE_HTTPONLY = False
 CSRF_USE_SESSIONS = False
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']
+
+# CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']
 # Формат даты для полей DateField
 USE_L10N = True
 DATE_FORMAT = 'd.m.Y'

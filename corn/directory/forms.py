@@ -10,7 +10,11 @@ from django.utils import timezone
 class OrderForm(forms.ModelForm):
     class Meta:
         model = OrderTable
-        fields = ['table']
+        fields = ['table', 'status']
+        widgets = {
+            'table': forms.Select(attrs={'class': 'form-control'}),
+            'status': forms.Select(attrs={'class': 'form-control'}),
+        }
 
     from django.utils import timezone
 
