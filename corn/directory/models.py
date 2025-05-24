@@ -52,20 +52,23 @@ class Products(models.Model):
 
 class OrderTable(models.Model):
     STATUS_CHOICES = [
+        ('unpaid', 'Не оплачен'),
         ('paid', 'Оплачено'),
-        ('unpaid', 'Неоплачено'),
         ('canceled', 'Отменено'),
     ]
 
     date = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время')
-    table = models.ForeignKey(Table, on_delete=models.PROTECT, blank=True)
+    table = models.ForeignKey('Table', on_delete=models.PROTECT, verbose_name='Стол')
     status = models.CharField(
         max_length=10,
         choices=STATUS_CHOICES,
         default='unpaid',
         verbose_name='Статус'
     )
-    products = models.ManyToManyField(Products, through='OrderItem', verbose_name='Товары')
+
+    class Meta:
+        verbose_name = 'Стол заказов'
+        verbose_name_plural = 'Столы заказов'
 
     def __str__(self):
         return f'Заказ {self.id} на столе {self.table}'
@@ -76,36 +79,32 @@ class OrderTable(models.Model):
     def products_list(self):
         return ", ".join([item.product.name for item in self.orderitem_set.all()])
 
-    products_list.short_description = 'Товары'
+
 
     def save(self, *args, **kwargs):
-        # Получаем предыдущий статус
+        # Получаем предыдущий статус, если заказ уже существует
         if self.pk:
             old_status = OrderTable.objects.get(pk=self.pk).status
         else:
             old_status = None
 
-        # Сохраняем заказ
         super().save(*args, **kwargs)
 
         # Обрабатываем изменение статуса
         if old_status != self.status:
-            with transaction.atomic():
-                if self.status == 'paid':
-                    # Удаляем старый ПКО (если есть)
-                    self.cashreceiptorder_order.all().delete()
-                    # Создаём новый ПКО только если есть товары
-                    if self.orderitem_set.exists():
-                        CashReceiptOrder.objects.create(
-                            order=self,
-                            sum=self.total_sum()
-                        )
-                elif old_status == 'paid':
-                    # Удаляем ПКО при смене статуса с "оплачено"
-                    self.cashreceiptorder_order.all().delete()
-    class Meta:
-        verbose_name = 'Стол заказов'
-        verbose_name_plural = 'Столы заказов'
+            self.handle_status_change(old_status)
+
+    def handle_status_change(self, old_status):
+        with transaction.atomic():
+            if self.status == 'paid' and self.orderitem_set.exists():
+                self.cashreceiptorder_order.all().delete()
+                CashReceiptOrder.objects.create(
+                    order=self,
+                    sum=self.total_sum()
+                )
+            elif old_status == 'paid':
+                self.cashreceiptorder_order.all().delete()
+
 
 
 class OrderItem(models.Model):

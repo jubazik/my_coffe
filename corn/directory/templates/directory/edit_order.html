@@ -1,121 +1,282 @@
 {% extends 'base.html' %}
 {% load custom_filters %}
 
+{% load static %}
+
+{% block extra_css %}
+<style>
+    .full-height-container {
+        height: calc(100vh - 120px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .order-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .order-header {
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+        background: #f8f9fa;
+    }
+
+    .order-body {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+    }
+
+    .products-section {
+        flex: 3;
+        padding: 15px;
+        overflow-y: auto;
+        border-right: 1px solid #eee;
+    }
+
+    .order-summary {
+        flex: 2;
+        padding: 15px;
+        overflow-y: auto;
+        background: #f8f9fa;
+    }
+
+    .category-tabs .nav-link {
+        padding: 8px 15px;
+        font-size: 0.9rem;
+    }
+
+    .product-card {
+        border: 1px solid #dee2e6;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background: white;
+    }
+
+    .product-quantity {
+        max-width: 80px;
+    }
+
+    .selected-products-table {
+        width: 100%;
+        font-size: 0.9rem;
+    }
+
+    .selected-products-table th {
+        background: #e9ecef;
+        padding: 8px 12px;
+    }
+
+    .selected-products-table td {
+        padding: 8px 12px;
+        vertical-align: middle;
+    }
+
+    .total-row {
+        font-weight: bold;
+        background: #f1f1f1;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <h2 class="mb-4">{% if mode == 'create' %}Создание нового заказа{% else %}Редактирование заказа #{{ order_id }}{% endif %}</h2>
-
-    {% if messages %}
-    <div class="messages">
-        {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <form method="post" class="order-form">
-        {% csrf_token %}
-
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <div class="card">
-                    <div class="card-header">Основная информация</div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label>{{ order_form.table.label }}</label>
-                            {{ order_form.table }}
-                        </div>
-                        <div class="form-group">
-                            <label>{{ order_form.status.label }}</label>
-                            {{ order_form.status }}
-                        </div>
-                    </div>
-                </div>
-            </div>
+<div class="full-height-container">
+    <div class="order-container">
+        <div class="order-header">
+            <h4 class="mb-0">Редактирование заказа #{{ order.id }}</h4>
+<!--            <small class="text-muted">Статус: Новый </small>-->
         </div>
 
-        <div class="card mb-4">
-            <div class="card-header">Товары в заказе</div>
-            <div class="card-body">
-                {% for category, cat_products in categories.items %}
-                <div class="category-section mb-4">
-                    <h5>{{ category }}</h5>
-                    <div class="row">
-                        {% for product in cat_products %}
-                        <div class="col-md-3 mb-3">
-                            <div class="product-card card h-100">
-                                <div class="card-body">
-                                    <h6 class="card-title">{{ product.name }}</h6>
-                                    <p class="card-text text-muted">{{ product.price }} ₽</p>
-                                    <div class="input-group">
-                                        <input type="number"
-                                               name="count-{{ product.id }}"
-                                               class="form-control product-quantity"
-                                               min="0"
-                                               value="{{ order_quantities|get_item:product.id|default:0 }}"
-                                               data-price="{{ product.price }}">
-                                        <div class="input-group-append">
-                                            <span class="input-group-text">шт.</span>
+        <div class="order-body">
+            <!-- Левая часть - товары -->
+            <div class="products-section">
+                <form method="post" id="order-form">
+                   {% csrf_token %}
+                    {{ order_form.table }}
+
+                    <!-- Категории товаров -->
+                    <div class="category-tabs mb-3">
+                        <ul class="nav nav-tabs">
+                            {% for category in products_by_category.keys %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if forloop.first %}active{% endif %}"
+                                   data-bs-toggle="tab"
+                                   href="#{{ category|slugify }}">
+                                    {{ category }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <!-- Товары по категориям -->
+                    <div class="tab-content">
+                        {% for category, products in products_by_category.items %}
+                        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
+                             id="{{ category|slugify }}">
+                            <div class="row row-cols-1 row-cols-md-2 g-3">
+                                {% for product in products %}
+                                <div class="col">
+                                    <div class="product-card">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <h6 class="mb-1">{{ product.name }}</h6>
+                                                <small class="text-muted">{{ product.price }} руб.</small>
+                                            </div>
+                                            <div class="input-group input-group-sm" style="width: 120px;">
+                                                <input type="number"
+                                                       name="product_{{ product.id }}"
+                                                       class="form-control form-control-sm product-quantity"
+                                                       min="0"
+                                                       value="0"
+                                                       data-product-id="{{ product.id }}"
+                                                       data-price="{{ product.price }}"
+                                                       data-product-name="{{ product.name }}">
+                                                <span class="input-group-text">шт.</span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <input type="hidden" name="product-{{ product.id }}" value="{{ product.id }}">
                                 </div>
+                                {% endfor %}
                             </div>
                         </div>
                         {% endfor %}
                     </div>
+                </form>
+            </div>
+
+            <!-- Правая часть - состав заказа -->
+            <div class="order-summary">
+                <h5 class="mb-3">Состав заказа</h5>
+
+                <table class="selected-products-table table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Товар</th>
+                            <th>Цена</th>
+                            <th>Кол-во</th>
+                            <th>Сумма</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="selected-items">
+                        <!-- Сюда будут добавляться выбранные товары -->
+                    </tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <td colspan="3" class="text-end">Итого:</td>
+                            <td id="total-sum">0 руб.</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <div class="mt-3">
+                    <button type="submit" form="order-form" class="btn btn-primary w-100">
+                        Создать заказ
+                    </button>
                 </div>
-                {% endfor %}
             </div>
         </div>
-
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Сохранить заказ</button>
-            <a href="{% url 'order_list' %}" class="btn btn-secondary">Отмена</a>
-        </div>
-    </form>
+    </div>
 </div>
 
-<style>
-    .product-card {
-        transition: all 0.3s;
-    }
-    .product-card:hover {
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .category-section {
-        padding: 15px;
-        background-color: #f8f9fa;
-        border-radius: 5px;
-    }
-</style>
-
+{% block extra_js %}
 <script>
-    // Динамический расчет суммы при изменении количества
-    document.querySelectorAll('.product-quantity').forEach(input => {
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('order-form');
+    const quantityInputs = document.querySelectorAll('.product-quantity');
+    const selectedItemsTable = document.getElementById('selected-items');
+    const totalSumElement = document.getElementById('total-sum');
+
+    let selectedProducts = {};
+    let totalSum = 0;
+
+    // Обработчик изменения количества товара
+    quantityInputs.forEach(input => {
         input.addEventListener('change', function() {
+            const productId = this.dataset.productId;
             const price = parseFloat(this.dataset.price);
-            const quantity = parseInt(this.value) || 0;
-            const sum = price * quantity;
-            // Можно добавить отображение суммы под каждым товаром
+            const name = this.dataset.productName;
+            let quantity = parseInt(this.value) || 0;
+
+            if (quantity < 0) {
+                quantity = 0;
+                this.value = 0;
+            }
+
+            if (quantity > 0) {
+                // Добавляем или обновляем товар
+                selectedProducts[productId] = {
+                    name: name,
+                    price: price,
+                    quantity: quantity,
+                    sum: price * quantity
+                };
+            } else {
+                // Удаляем товар, если количество 0
+                delete selectedProducts[productId];
+            }
+
+            updateSelectedItemsTable();
         });
     });
 
-    // Подсветка выбранных товаров
-    document.querySelectorAll('.product-quantity').forEach(input => {
-        input.addEventListener('change', function() {
-            const card = this.closest('.product-card');
-            if (parseInt(this.value) > 0) {
-                card.style.border = '2px solid #28a745';
-            } else {
-                card.style.border = '1px solid rgba(0,0,0,.125)';
-            }
-        });
+    // Обновление таблицы выбранных товаров
+    function updateSelectedItemsTable() {
+        selectedItemsTable.innerHTML = '';
+        totalSum = 0;
 
-        // Инициализация подсветки при загрузке
-        if (parseInt(input.value) > 0) {
-            input.closest('.product-card').style.border = '2px solid #28a745';
+        for (const productId in selectedProducts) {
+            const product = selectedProducts[productId];
+            totalSum += product.sum;
+
+            const row = selectedItemsTable.insertRow();
+            row.innerHTML = `
+                <td>${product.name}</td>
+                <td>${product.price} руб.</td>
+                <td>${product.quantity}</td>
+                <td>${product.sum} руб.</td>
+                <td class="text-end">
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-item"
+                            data-product-id="${productId}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+        }
+
+        totalSumElement.textContent = totalSum.toFixed(2) + ' руб.';
+    }
+
+    // Обработчик удаления товара
+    selectedItemsTable.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-item')) {
+            const productId = e.target.closest('.remove-item').dataset.productId;
+            delete selectedProducts[productId];
+
+            // Сбрасываем значение в input
+            const input = document.querySelector(`.product-quantity[data-product-id="${productId}"]`);
+            if (input) {
+                input.value = 0;
+            }
+
+            updateSelectedItemsTable();
         }
     });
+});
 </script>
+{% endblock %}
 {% endblock %}
