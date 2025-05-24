@@ -38,9 +38,9 @@ def product_list(request):
 
 
 def create_order(request):
-    # categories = Products.objects.values_list('category', flat=True).distinct()
-    categories = Products.objects.order_by('category').values_list('category', flat=True).distinct()
-
+    categories = Products.objects.values_list('category', flat=True).distinct()
+    # categories = [str(cat) for cat in
+    #               Products.objects.values_list('category', flat=True).distinct()]
     products_by_category = {
         cat: Products.objects.filter(category=cat).order_by('name')
         for cat in categories
@@ -93,7 +93,7 @@ def create_order(request):
             messages.error(request, "Пожалуйста, исправьте ошибки в форме.")
     else:
         order_form = OrderForm()
-    print(products_by_category.keys())
+    # print(products_by_category.keys())
 
     return render(request, 'directory/create_order.html', {
         'order_form': order_form,
