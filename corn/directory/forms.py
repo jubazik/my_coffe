@@ -10,20 +10,14 @@ from django.utils import timezone
 class OrderForm(forms.ModelForm):
     class Meta:
         model = OrderTable
-        fields = ['table', 'status']
+        fields = ['table']  #/олько поле table, остальные обрабатываются автоматически
         widgets = {
             'table': forms.Select(attrs={'class': 'form-control'}),
-            'status': forms.Select(attrs={'class': 'form-control'}),
+            # 'status':forms.Select(attrs={'class':'form-control'})
         }
-
-    from django.utils import timezone
-
-    def clean_date(self):
-        date = self.cleaned_data.get('date')
-        if date and not timezone.is_aware(date):
-            return timezone.make_aware(date)
-        return date
-
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['table'].empty_label = "Выберите стол"
 
 class OrderFilterForm(forms.Form):
     STATUS_CHOICES = [
@@ -32,18 +26,18 @@ class OrderFilterForm(forms.Form):
     ]
     status = forms.ChoiceField(choices=STATUS_CHOICES, required=False)
 
-
-class OrderForm(forms.ModelForm):
-    class Meta:
-        model = OrderTable  # Указываем модель, с которой связана форма
-        fields = ['table', 'status']  # Поля, которые будут отображаться в форме
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Добавляем CSS-классы для стилизации полей формы (опционально)
-        self.fields['table'].widget.attrs.update({'class': 'form-control'})
-        self.fields['status'].widget.attrs.update({'class': 'form-control'})
-
+#
+# class OrderForm(forms.ModelForm):
+#     class Meta:
+#         model = OrderTable  # Указываем модель, с которой связана форма
+#         fields = ['table', 'status']  # Поля, которые будут отображаться в форме
+#
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         # Добавляем CSS-классы для стилизации полей формы (опционально)
+#         self.fields['table'].widget.attrs.update({'class': 'form-control'})
+#         self.fields['status'].widget.attrs.update({'class': 'form-control'})
+#
 
 #
 
