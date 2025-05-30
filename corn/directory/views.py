@@ -3,6 +3,8 @@ import logging
 from django.contrib.auth.decorators import permission_required
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.backends.signals import connection_created
+from django.dispatch import receiver
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Avg
@@ -16,6 +18,12 @@ from .models import *
 import datetime
 
 logger = logging.getLogger(__name__)
+
+@receiver(connection_created)
+def set_time_zone(sender, connection, **kwargs):
+    if connection.vendor == 'pasgst':
+        cursor = connection.cursor()
+        cursor.execute("PRAGMA timezone = 'Europe/Moscow';")
 
 
 def created_products_list(request):
@@ -38,13 +46,22 @@ def product_list(request):
 
 
 def create_order(request):
-    categories = Products.objects.values_list('category', flat=True).distinct()
-    # categories = [str(cat) for cat in
-    #               Products.objects.values_list('category', flat=True).distinct()]
-    products_by_category = {
-        cat: Products.objects.filter(category=cat).order_by('name')
-        for cat in categories
-    }
+    categories = (
+        Products.objects
+        .exclude(category__isnull=True)
+        .order_by('category__name')
+        .values_list('category__name', flat=True)
+        .distinct()
+    )
+
+    # Формируем словарь с активными товарами
+    products_by_category = {}
+    for category in categories:
+        products = Products.objects.filter(
+            category__name=category # Добавляем фильтр по активности
+        ).order_by('name')
+        if products.exists():  # Добавляем только непустые категории
+            products_by_category[category] = products
 
     if request.method == 'POST':
         order_form = OrderForm(request.POST)
@@ -93,7 +110,11 @@ def create_order(request):
             messages.error(request, "Пожалуйста, исправьте ошибки в форме.")
     else:
         order_form = OrderForm()
-    # print(products_by_category.keys())
+    print(products_by_category.keys())
+    print(Products.objects.filter(category__name='кофе с молоком'))
+    print("Все категории:", categories)
+    print("Товары 'кофе с молоком':", Products.objects.filter(category__name='кофе с молоком'))
+    print("Структура products_by_category:", {k: list(v) for k, v in products_by_category.items()})
 
     return render(request, 'directory/create_order.html', {
         'order_form': order_form,
@@ -104,14 +125,25 @@ def create_order(request):
 
 def edit_order(request, order_id):
     order = get_object_or_404(OrderTable, id=order_id)
-    order_items = order.orderitem_set.all()  # Получаем текущие товары в заказе
+    order_items = order.orderitem_set.all()
 
-    # Получаем все категории и товары
-    categories = Products.objects.values_list('category', flat=True).distinct()
-    products_by_category = {
-        cat: Products.objects.filter(category=cat).order_by('name')
-        for cat in categories
-    }
+    # Получаем все категории (без фильтрации по is_active)
+    categories = (
+        Products.objects
+        .exclude(category__isnull=True)
+        .order_by('category__name')
+        .values_list('category__name', flat=True)
+        .distinct()
+    )
+
+    # Формируем словарь с товарами по категориям
+    products_by_category = {}
+    for category in categories:
+        products = Products.objects.filter(
+            category__name=category
+        ).order_by('name')
+        if products.exists():
+            products_by_category[category] = products
 
     if request.method == 'POST':
         order_form = OrderForm(request.POST, instance=order)
@@ -127,21 +159,23 @@ def edit_order(request, order_id):
 
                     # Обрабатываем новые товары из формы
                     items_added = 0
-                    for product in Products.objects.all():
-                        count_str = request.POST.get(f'product_{product.id}', '0')
-                        try:
-                            count = int(count_str)
-                            if count > 0:
-                                OrderItem.objects.create(
-                                    order=order,
-                                    product=product,
-                                    count=count,
-                                    price=product.price,
-                                    sum=count * product.price
-                                )
-                                items_added += 1
-                        except ValueError:
-                            continue
+                    for key, value in request.POST.items():
+                        if key.startswith('product_'):
+                            product_id = key.split('_')[1]
+                            try:
+                                product = Products.objects.get(id=product_id)
+                                count = int(value)
+                                if count > 0:
+                                    OrderItem.objects.create(
+                                        order=order,
+                                        product=product,
+                                        count=count,
+                                        price=product.price,
+                                        sum=count * product.price
+                                    )
+                                    items_added += 1
+                            except (ValueError, Products.DoesNotExist):
+                                continue
 
                     if items_added == 0:
                         messages.warning(request, "В заказе нет товаров")
@@ -251,6 +285,13 @@ def mark_order_as_paid(request, order_id):
         messages.error(request, "Ошибка оплаты")
     return redirect('order_list')
 
+@require_POST
+def cancel_order(request, order_id):
+    order = get_object_or_404(OrderTable, id=order_id)
+    order.status = 'canceled'
+    order.save()
+    messages.success(request, f'Заказ #{order.id} отменен')
+    return redirect('edit_order', order_id=order.id)
 
 def cancel_order(request, order_id):
     order = get_object_or_404(OrderTable, id=order_id)
