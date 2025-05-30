@@ -26,20 +26,7 @@ class OrderFilterForm(forms.Form):
     ]
     status = forms.ChoiceField(choices=STATUS_CHOICES, required=False)
 
-#
-# class OrderForm(forms.ModelForm):
-#     class Meta:
-#         model = OrderTable  # Указываем модель, с которой связана форма
-#         fields = ['table', 'status']  # Поля, которые будут отображаться в форме
-#
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         # Добавляем CSS-классы для стилизации полей формы (опционально)
-#         self.fields['table'].widget.attrs.update({'class': 'form-control'})
-#         self.fields['status'].widget.attrs.update({'class': 'form-control'})
-#
 
-#
 
 class OrderDetailForm(forms.ModelForm):
     class Meta:
