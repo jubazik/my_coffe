@@ -96,13 +96,16 @@ class OrderTable(models.Model):
 
     def handle_status_change(self, old_status):
         with transaction.atomic():
-            if (self.status == 'cash' or self.status == 'without_cash') and self.orderitem_set.exists():
+            if self.status == 'cash' and self.orderitem_set.exists():
                 self.cashreceiptorder_order.all().delete()
-                PaymentOrder.objects.create(
+                CashReceiptOrder.objects.create(
                     order=self,
                     sum=self.total_sum()
                 )
-                CashReceiptOrder.objects.create(
+            elif self.status == 'without_cash' and self.orderitem_set.exists():
+                self.paymentorder_order.all().delete()
+
+                PaymentOrder.objects.create(
                     order=self,
                     sum=self.total_sum()
                 )
