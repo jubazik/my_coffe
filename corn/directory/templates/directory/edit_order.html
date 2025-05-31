@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
-{% load custom_filters %}
-
 {% load static %}
 
 {% block extra_css %}
+
     <link rel="stylesheet" href="{% static 'directory/css/edit_order.css' %}">
+
 {% endblock %}
 
 {% block content %}
@@ -12,63 +12,50 @@
     <div class="order-container">
         <div class="order-header">
             <h4 class="mb-0">Редактирование заказа #{{ order.id }}</h4>
-<!--            <small class="text-muted">Статус: Новый </small>-->
         </div>
 
         <div class="order-body">
             <!-- Левая часть - товары -->
             <div class="products-section">
                 <form method="post" id="order-form">
-                   {% csrf_token %}
-                    {{ order_form.table }}
+                    {% csrf_token %}
+                    {{ order_form.as_p }}
 
-                    <!-- Категории товаров -->
-                    <div class="category-tabs mb-3">
-                        <ul class="nav nav-tabs">
+                    <div class="mt-3">
+                        <ul class="nav nav-tabs mb-3" id="categoryTabs" role="tablist">
                             {% for category in products_by_category.keys %}
-                            <li class="nav-item">
-                                <a class="nav-link {% if forloop.first %}active{% endif %}"
-                                   data-bs-toggle="tab"
-                                   href="#{{ category|slugify }}">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link {% if forloop.first %}active{% endif %}"
+                                        id="tab-{{ forloop.counter }}"
+                                        data-bs-toggle="tab"
+                                        data-bs-target="#content-{{ forloop.counter }}"
+                                        type="button">
                                     {{ category }}
-                                </a>
+                                </button>
                             </li>
                             {% endfor %}
                         </ul>
-                    </div>
 
-                    <!-- Товары по категориям -->
-                    <div class="tab-content">
-                        {% for category, products in products_by_category.items %}
-                        <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
-                             id="{{ category|slugify }}">
-                            <div class="row row-cols-1 row-cols-md-2 g-3">
-                                {% for product in products %}
-                                <div class="col">
-                                    <div class="product-card">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div>
-                                                <h6 class="mb-1">{{ product.name }}</h6>
-                                                <small class="text-muted">{{ product.price }} руб.</small>
-                                            </div>
-                                            <div class="input-group input-group-sm" style="width: 120px;">
-                                                <input type="number"
-                                                       name="product_{{ product.id }}"
-                                                       class="form-control form-control-sm product-quantity"
-                                                       min="0"
-                                                       value="0"
-                                                       data-product-id="{{ product.id }}"
-                                                       data-price="{{ product.price }}"
-                                                       data-product-name="{{ product.name }}">
-                                                <span class="input-group-text">шт.</span>
+                        <div class="tab-content" id="categoryTabsContent">
+                            {% for category, products in products_by_category.items %}
+                            <div class="tab-pane fade {% if forloop.first %}show active{% endif %}"
+                                 id="content-{{ forloop.counter }}"
+                                 role="tabpanel">
+                                <div class="row row-cols-1 row-cols-md-3 g-4">
+                                    {% for product in products %}
+                                    <div class="col">
+                                        <div class="card h-100 product-card" data-product-id="{{ product.id }}">
+                                            <div class="card-body">
+                                                <h5 class="card-title">{{ product.name }}</h5>
+                                                <p class="card-text">{{ product.price }} руб.</p>
                                             </div>
                                         </div>
                                     </div>
+                                    {% endfor %}
                                 </div>
-                                {% endfor %}
                             </div>
+                            {% endfor %}
                         </div>
-                        {% endfor %}
                     </div>
                 </form>
             </div>
@@ -76,74 +63,105 @@
             <!-- Правая часть - состав заказа -->
             <div class="order-summary">
                 <h5 class="mb-3">Состав заказа</h5>
-
                 <table class="selected-products-table table table-sm">
                     <thead>
-                        <tr>
-                            <th>Товар</th>
-                            <th>Цена</th>
-                            <th>Кол-во</th>
-                            <th>Сумма</th>
-                            <th></th>
-                        </tr>
+                    <tr>
+                        <th>Товар</th>
+                        <th>Цена</th>
+                        <th>Кол-во</th>
+                        <th>Сумма</th>
+                        <th></th>
+                    </tr>
                     </thead>
                     <tbody id="selected-items">
-                        <!-- Сюда будут добавляться выбранные товары -->
+                    {% for item in order.orderitem_set.all %}
+                    <tr data-product-id="{{ item.product.id }}">
+                        <td>{{ item.product.name }}</td>
+                        <td>{{ item.price }} руб.</td>
+                        <td>
+                            <div class="quantity-controls">
+                                <button class="btn btn-sm btn-outline-secondary quantity-btn minus-btn">-</button>
+                                <span>{{ item.count }}</span>
+                                <button class="btn btn-sm btn-outline-secondary quantity-btn plus-btn">+</button>
+                            </div>
+                        </td>
+                        <td>{{ item.sum }} руб.</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+                                Удалить
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
                     </tbody>
                     <tfoot>
-                        <tr class="total-row">
-                            <td colspan="3" class="text-end">Итого:</td>
-                            <td id="total-sum">0 руб.</td>
-                            <td></td>
-                        </tr>
+                    <tr class="total-row">
+                        <td colspan="3" class="text-end">Итого:</td>
+                        <td id="total-sum">{{ order.total_sum }} руб.</td>
+                        <td></td>
+                    </tr>
                     </tfoot>
                 </table>
-
                 <div class="mt-3">
                     <button type="submit" form="order-form" class="btn btn-primary w-100">
-                        Создать заказ
+                        Сохранить изменения
                     </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('order-form');
-    const quantityInputs = document.querySelectorAll('.product-quantity');
+    // Инициализация вкладок
+    var tabElms = document.querySelectorAll('button[data-bs-toggle="tab"]');
+    tabElms.forEach(function(tabEl) {
+        tabEl.addEventListener('click', function(event) {
+            new bootstrap.Tab(event.target).show();
+        });
+    });
+
+    // Хранилище выбранных товаров
+    let selectedProducts = {};
+    let totalSum = parseFloat(document.getElementById('total-sum').textContent) || 0;
     const selectedItemsTable = document.getElementById('selected-items');
     const totalSumElement = document.getElementById('total-sum');
+    const form = document.getElementById('order-form');
 
-    let selectedProducts = {};
-    let totalSum = 0;
+    // Инициализация начальных товаров из заказа
+    document.querySelectorAll('#selected-items tr').forEach(row => {
+        const productId = row.dataset.productId;
+        const cells = row.cells;
+        selectedProducts[productId] = {
+            name: cells[0].textContent,
+            price: parseFloat(cells[1].textContent),
+            quantity: parseInt(cells[2].querySelector('span').textContent),
+            sum: parseFloat(cells[3].textContent)
+        };
+    });
 
-    // Обработчик изменения количества товара
-    quantityInputs.forEach(input => {
-        input.addEventListener('change', function() {
+    // Обработка клика по товару
+    document.querySelectorAll('.product-card').forEach(card => {
+        card.addEventListener('click', function() {
             const productId = this.dataset.productId;
-            const price = parseFloat(this.dataset.price);
-            const name = this.dataset.productName;
-            let quantity = parseInt(this.value) || 0;
+            const productName = this.querySelector('.card-title').textContent;
+            const productPrice = parseFloat(this.querySelector('.card-text').textContent.split(' ')[0]);
 
-            if (quantity < 0) {
-                quantity = 0;
-                this.value = 0;
-            }
-
-            if (quantity > 0) {
-                // Добавляем или обновляем товар
-                selectedProducts[productId] = {
-                    name: name,
-                    price: price,
-                    quantity: quantity,
-                    sum: price * quantity
-                };
+            // Добавляем или увеличиваем количество
+            if (selectedProducts[productId]) {
+                selectedProducts[productId].quantity += 1;
+                selectedProducts[productId].sum = selectedProducts[productId].quantity * productPrice;
             } else {
-                // Удаляем товар, если количество 0
-                delete selectedProducts[productId];
+                selectedProducts[productId] = {
+                    name: productName,
+                    price: productPrice,
+                    quantity: 1,
+                    sum: productPrice
+                };
             }
 
             updateSelectedItemsTable();
@@ -159,40 +177,71 @@ document.addEventListener('DOMContentLoaded', function() {
             const product = selectedProducts[productId];
             totalSum += product.sum;
 
-            const row = selectedItemsTable.insertRow();
+            const row = document.createElement('tr');
+            row.dataset.productId = productId;
             row.innerHTML = `
                 <td>${product.name}</td>
                 <td>${product.price} руб.</td>
-                <td>${product.quantity}</td>
-                <td>${product.sum} руб.</td>
+                <td>
+                    <div class="quantity-controls">
+                        <button class="btn btn-sm btn-outline-secondary quantity-btn minus-btn">-</button>
+                        <span>${product.quantity}</span>
+                        <button class="btn btn-sm btn-outline-secondary quantity-btn plus-btn">+</button>
+                    </div>
+                </td>
+                <td>${product.sum.toFixed(2)} руб.</td>
                 <td class="text-end">
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-item"
-                            data-product-id="${productId}">
-                        <i class="bi bi-trash"></i>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-item">
+                        Удалить
                     </button>
                 </td>
             `;
+            selectedItemsTable.appendChild(row);
         }
 
         totalSumElement.textContent = totalSum.toFixed(2) + ' руб.';
     }
 
-    // Обработчик удаления товара
+    // Обработка событий в таблице заказа
     selectedItemsTable.addEventListener('click', function(e) {
-        if (e.target.closest('.remove-item')) {
-            const productId = e.target.closest('.remove-item').dataset.productId;
-            delete selectedProducts[productId];
+        const row = e.target.closest('tr');
+        if (!row) return;
 
-            // Сбрасываем значение в input
-            const input = document.querySelector(`.product-quantity[data-product-id="${productId}"]`);
-            if (input) {
-                input.value = 0;
+        const productId = row.dataset.productId;
+        const product = selectedProducts[productId];
+
+        // Уменьшение количества
+        if (e.target.closest('.minus-btn')) {
+            product.quantity -= 1;
+            product.sum = product.quantity * product.price;
+            if (product.quantity <= 0) {
+                delete selectedProducts[productId];
             }
+        }
+        // Увеличение количества
+        else if (e.target.closest('.plus-btn')) {
+            product.quantity += 1;
+            product.sum = product.quantity * product.price;
+        }
+        // Удаление товара
+        else if (e.target.closest('.remove-item')) {
+            delete selectedProducts[productId];
+        }
 
-            updateSelectedItemsTable();
+        updateSelectedItemsTable();
+    });
+
+    // Обработка отправки формы
+    form.addEventListener('submit', function(e) {
+        // Добавляем скрытые поля для каждого выбранного товара
+        for (const productId in selectedProducts) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = `product_${productId}`;
+            input.value = selectedProducts[productId].quantity;
+            form.appendChild(input);
         }
     });
 });
 </script>
-{% endblock %}
 {% endblock %}

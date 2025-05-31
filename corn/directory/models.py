@@ -2,6 +2,7 @@ from django.db import models, transaction
 from django.db.models import Sum
 from django.core.validators import MinValueValidator
 
+
 #
 class Table(models.Model):
     name = models.CharField(max_length=100, verbose_name='Стол', default='Стол')
@@ -53,14 +54,15 @@ class Products(models.Model):
 class OrderTable(models.Model):
     STATUS_CHOICES = [
         ('unpaid', 'Не оплачен'),
-        ('paid', 'Оплачено'),
+        ('cash', 'Наличными'),
+        ('without_cash', 'Без налич'),
         ('canceled', 'Отменено'),
     ]
 
     date = models.DateTimeField(auto_now_add=True, verbose_name='Дата и время')
     table = models.ForeignKey('Table', on_delete=models.PROTECT, verbose_name='Стол')
     status = models.CharField(
-        max_length=10,
+        max_length=15,
         choices=STATUS_CHOICES,
         default='unpaid',
         verbose_name='Статус'
@@ -79,8 +81,6 @@ class OrderTable(models.Model):
     def products_list(self):
         return ", ".join([item.product.name for item in self.orderitem_set.all()])
 
-
-
     def save(self, *args, **kwargs):
         # Получаем предыдущий статус, если заказ уже существует
         if self.pk:
@@ -96,15 +96,21 @@ class OrderTable(models.Model):
 
     def handle_status_change(self, old_status):
         with transaction.atomic():
-            if self.status == 'paid' and self.orderitem_set.exists():
+            if (self.status == 'cash' or self.status == 'without_cash') and self.orderitem_set.exists():
                 self.cashreceiptorder_order.all().delete()
+                PaymentOrder.objects.create(
+                    order=self,
+                    sum=self.total_sum()
+                )
                 CashReceiptOrder.objects.create(
                     order=self,
                     sum=self.total_sum()
                 )
-            elif old_status == 'paid':
+            elif old_status == 'cash':
                 self.cashreceiptorder_order.all().delete()
 
+            elif old_status == 'without_cash':
+                self.paymentorder_order.all().delete()
 
 
 class OrderItem(models.Model):
@@ -126,10 +132,42 @@ class OrderItem(models.Model):
         verbose_name = 'Элемент заказа'
         verbose_name_plural = 'Элементы заказа'
 
+
+class PaymentOrder(models.Model):
+    date = models.DateTimeField(auto_now_add=True, verbose_name='Дата')
+    order = models.ForeignKey(OrderTable, on_delete=models.CASCADE, related_name='paymentorder_order',
+                              verbose_name='Заказ', editable=False)
+    sum = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Сумма', editable=False)
+
+    def __str__(self):
+        return f"Дата:{self.date} стол заказа{self.order} Сумма{self.sum}"
+
+    def save(self, *args, **kwargs):
+        # Проверяем что заказ оплачен и есть товары
+        if self.order.status != 'without_cash':
+            raise ValueError("Платежное поручение можно создать только для оплаченного заказа")
+
+        if not self.order.orderitem_set.exists():
+            raise ValueError("Нельзя создать платежное поручение для заказа без товаров")
+
+        # Автоматически считаем сумму
+        self.sum = self.order.total_sum()
+
+        # Проверяем что сумма положительная
+        if self.sum <= 0:
+            raise ValueError("Сумма платежное поручение должна быть больше 0")
+
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = "Платежное поручение"
+        verbose_name_plural = "Платежные поручении"
+
+
 class CashReceiptOrder(models.Model):
     date = models.DateTimeField(auto_now_add=True, verbose_name="Дата")
     order = models.ForeignKey(OrderTable, on_delete=models.CASCADE, related_name='cashreceiptorder_order',
-                             verbose_name='Заказ', editable=False)
+                              verbose_name='Заказ', editable=False)
     sum = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма", editable=False)
 
     def __str__(self):
@@ -137,7 +175,7 @@ class CashReceiptOrder(models.Model):
 
     def save(self, *args, **kwargs):
         # Проверяем что заказ оплачен и есть товары
-        if self.order.status != 'paid':
+        if self.order.status != 'cash':
             raise ValueError("Кассовый ордер можно создать только для оплаченного заказа")
 
         if not self.order.orderitem_set.exists():

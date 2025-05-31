@@ -3,19 +3,27 @@ import logging
 from django.contrib.auth.decorators import permission_required
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.backends.signals import connection_created
+from django.dispatch import receiver
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Avg
 from django.utils import timezone
 from django.contrib import messages
-from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
-
-from .forms import OrderForm, DateRangeForm, ProductForm, OrderFilterForm, OrderItemForm
+from .forms import OrderForm, DateRangeForm, ProductForm, OrderFilterForm
 from .models import *
 import datetime
 
 logger = logging.getLogger(__name__)
+
+
+@receiver(connection_created)
+def set_time_zone(sender, connection, **kwargs):
+    if connection.vendor == 'pasgst':
+        cursor = connection.cursor()
+        cursor.execute("PRAGMA timezone = 'Europe/Moscow';")
 
 
 def created_products_list(request):
@@ -38,13 +46,22 @@ def product_list(request):
 
 
 def create_order(request):
-    categories = Products.objects.values_list('category', flat=True).distinct()
-    # categories = [str(cat) for cat in
-    #               Products.objects.values_list('category', flat=True).distinct()]
-    products_by_category = {
-        cat: Products.objects.filter(category=cat).order_by('name')
-        for cat in categories
-    }
+    categories = (
+        Products.objects
+        .exclude(category__isnull=True)
+        .order_by('category__name')
+        .values_list('category__name', flat=True)
+        .distinct()
+    )
+
+    # Формируем словарь с активными товарами
+    products_by_category = {}
+    for category in categories:
+        products = Products.objects.filter(
+            category__name=category  # Добавляем фильтр по активности
+        ).order_by('name')
+        if products.exists():  # Добавляем только непустые категории
+            products_by_category[category] = products
 
     if request.method == 'POST':
         order_form = OrderForm(request.POST)
@@ -93,7 +110,11 @@ def create_order(request):
             messages.error(request, "Пожалуйста, исправьте ошибки в форме.")
     else:
         order_form = OrderForm()
-    # print(products_by_category.keys())
+    print(products_by_category.keys())
+    print(Products.objects.filter(category__name='кофе с молоком'))
+    print("Все категории:", categories)
+    print("Товары 'кофе с молоком':", Products.objects.filter(category__name='кофе с молоком'))
+    print("Структура products_by_category:", {k: list(v) for k, v in products_by_category.items()})
 
     return render(request, 'directory/create_order.html', {
         'order_form': order_form,
@@ -104,14 +125,25 @@ def create_order(request):
 
 def edit_order(request, order_id):
     order = get_object_or_404(OrderTable, id=order_id)
-    order_items = order.orderitem_set.all()  # Получаем текущие товары в заказе
+    order_items = order.orderitem_set.all()
 
-    # Получаем все категории и товары
-    categories = Products.objects.values_list('category', flat=True).distinct()
-    products_by_category = {
-        cat: Products.objects.filter(category=cat).order_by('name')
-        for cat in categories
-    }
+    # Получаем все категории (без фильтрации по is_active)
+    categories = (
+        Products.objects
+        .exclude(category__isnull=True)
+        .order_by('category__name')
+        .values_list('category__name', flat=True)
+        .distinct()
+    )
+
+    # Формируем словарь с товарами по категориям
+    products_by_category = {}
+    for category in categories:
+        products = Products.objects.filter(
+            category__name=category
+        ).order_by('name')
+        if products.exists():
+            products_by_category[category] = products
 
     if request.method == 'POST':
         order_form = OrderForm(request.POST, instance=order)
@@ -127,21 +159,23 @@ def edit_order(request, order_id):
 
                     # Обрабатываем новые товары из формы
                     items_added = 0
-                    for product in Products.objects.all():
-                        count_str = request.POST.get(f'product_{product.id}', '0')
-                        try:
-                            count = int(count_str)
-                            if count > 0:
-                                OrderItem.objects.create(
-                                    order=order,
-                                    product=product,
-                                    count=count,
-                                    price=product.price,
-                                    sum=count * product.price
-                                )
-                                items_added += 1
-                        except ValueError:
-                            continue
+                    for key, value in request.POST.items():
+                        if key.startswith('product_'):
+                            product_id = key.split('_')[1]
+                            try:
+                                product = Products.objects.get(id=product_id)
+                                count = int(value)
+                                if count > 0:
+                                    OrderItem.objects.create(
+                                        order=order,
+                                        product=product,
+                                        count=count,
+                                        price=product.price,
+                                        sum=count * product.price
+                                    )
+                                    items_added += 1
+                            except (ValueError, Products.DoesNotExist):
+                                continue
 
                     if items_added == 0:
                         messages.warning(request, "В заказе нет товаров")
@@ -167,6 +201,7 @@ def edit_order(request, order_id):
         'order': order,
         'mode': 'edit'
     })
+
 
 @permission_required('orders.view_order', raise_exception=True)
 def order_list(request):
@@ -235,12 +270,14 @@ def order_list(request):
         'status_choices': OrderTable.STATUS_CHOICES,
     }
     return render(request, 'directory/order_list.html', context)
+
+
 def mark_order_as_paid(request, order_id):
     try:
         order = get_object_or_404(OrderTable, id=order_id)
-        if order.status != 'paid':
+        if order.status != 'cash':
             with transaction.atomic():
-                order.status = 'paid'
+                order.status = 'cash'
                 order.save()
                 logger.info(f"Заказ {order_id} оплачен")
                 messages.success(request, "Заказ оплачен")
@@ -250,6 +287,15 @@ def mark_order_as_paid(request, order_id):
         logger.error(f"Ошибка оплаты заказа {order_id}: {str(e)}")
         messages.error(request, "Ошибка оплаты")
     return redirect('order_list')
+
+
+@require_POST
+def cancel_order(request, order_id):
+    order = get_object_or_404(OrderTable, id=order_id)
+    order.status = 'canceled'
+    order.save()
+    messages.success(request, f'Заказ #{order.id} отменен')
+    return redirect('edit_order', order_id=order.id)
 
 
 def cancel_order(request, order_id):
@@ -284,25 +330,64 @@ def update_order_status(request, order_id):
 
     return redirect('order_list')
 
-    # return JsonResponse({
-    #     'success': True,
-    #     'new_status': order.get_status_display(),
-    #     'order_id': order_id
-    # })
-
 
 def cashreceiptorderviews(request):
-    pay_list = CashReceiptOrder.objects.all().order_by('-date')
+    # Собираем все объекты обоих типов в один список
+    cash_orders = CashReceiptOrder.objects.all().order_by('-date')
+    payment_orders = PaymentOrder.objects.all().order_by('-date')
+
+    # Объединяем querysets
+    combined_orders = sorted(
+        list(cash_orders) + list(payment_orders),
+        key=lambda x: x.date,
+        reverse=True
+    )
+
+    # Получаем текущую дату
+    today = timezone.now().date()
+    first_day_of_month = today.replace(day=1)
 
     # Пагинация
-    paginator = Paginator(pay_list, 10)  # 10 элементов на страницу
+    paginator = Paginator(combined_orders, 10)  # 10 элементов на страницу
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Общая сумма всех ПКО
-    total_sum = pay_list.aggregate(total=Sum('sum'))['total'] or 0
+    # Общие суммы
+    total_cash = cash_orders.aggregate(total=Sum('sum'))['total'] or 0
+    total_payment = payment_orders.aggregate(total=Sum('sum'))['total'] or 0
+    total_sum = total_cash + total_payment
+
+    # Сумма за текущий день
+    daily_cash = CashReceiptOrder.objects.filter(
+        date__year=today.year,
+        date__month=today.month,
+        date__day=today.day
+    ).aggregate(total=Sum('sum'))['total'] or 0
+
+    daily_payment = PaymentOrder.objects.filter(
+        date__year=today.year,
+        date__month=today.month,
+        date__day=today.day
+    ).aggregate(total=Sum('sum'))['total'] or 0
+    daily_sum = daily_cash + daily_payment
+
+    # Сумма за текущий месяц
+    monthly_cash = CashReceiptOrder.objects.filter(
+        date__year=first_day_of_month.year,
+        date__month=first_day_of_month.month
+    ).aggregate(total=Sum('sum'))['total'] or 0
+
+    monthly_payment = PaymentOrder.objects.filter(
+        date__year=first_day_of_month.year,
+        date__month=first_day_of_month.month
+    ).aggregate(total=Sum('sum'))['total'] or 0
+    monthly_sum = monthly_cash + monthly_payment
 
     return render(request, 'directory/pko_list.html', {
         'page_obj': page_obj,
-        'total_sum': total_sum
+        'total_sum': total_sum,
+        'daily_sum': daily_sum,
+        'monthly_sum': monthly_sum,
+        'current_date': today.strftime("%d.%m.%Y"),
+        'current_month': first_day_of_month.strftime("%m.%Y")
     })
