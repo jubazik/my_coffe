@@ -8,6 +8,7 @@ from django.dispatch import receiver
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db.models import Sum, Avg
+from django.urls import reverse
 from django.utils import timezone
 from django.contrib import messages
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -255,7 +256,11 @@ def order_list(request):
             order = get_object_or_404(OrderTable, id=order_id)
             order.status = new_status
             order.save()
-            return redirect('order_list')
+
+            # Сохраняем параметры фильтрации для редиректа
+            params = request.GET.urlencode()
+            redirect_url = f"{reverse('order_list')}?{params}" if params else reverse('order_list')
+            return redirect(redirect_url)
 
     # Пагинация
     paginator = Paginator(orders, 10)
