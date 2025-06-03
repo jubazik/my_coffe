@@ -280,7 +280,7 @@ def order_list(request):
 def mark_order_as_paid(request, order_id):
     try:
         order = get_object_or_404(OrderTable, id=order_id)
-        if order.status != 'cash':
+        if order.status != 'cash' or order.status != 'without_cash':
             with transaction.atomic():
                 order.status = 'cash'
                 order.save()
