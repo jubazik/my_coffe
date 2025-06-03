@@ -1,3 +1,5 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -11,73 +13,11 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
+    <link rel="stylesheet" href="{% static 'admin/css/dop_base.css' %}">
+
     <!-- Дополнительные CSS -->
     {% block extra_css %}{% endblock %}
 
-    <style>
-        :root {
-            --primary-color: #0d6efd;
-            --secondary-color: #6c757d;
-        }
-
-        html, body {
-            height: 100%;
-            margin: 0;
-        }
-
-        body {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-            background-color: #f8f9fa;
-        }
-
-        .wrapper {
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        .navbar {
-            box-shadow: 0 2px 4px rgba(0,0,0,.1);
-            flex-shrink: 0;
-        }
-
-        .main-content {
-            flex: 1 0 auto;
-            padding: 2rem 0;
-            width: 100%;
-        }
-
-        .footer {
-            background-color: #f8f9fa;
-            padding: 1.5rem 0;
-            margin-top: auto;
-            flex-shrink: 0;
-        }
-
-        .full-height-container {
-            min-height: calc(100vh - 120px); /* Учитываем высоту header и footer */
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Анимации */
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .fade-in {
-            animation: fadeIn 0.3s ease-in;
-        }
-
-        /* Для таблиц на всю высоту */
-        .table-responsive-full {
-            height: calc(100vh - 250px);
-            overflow-y: auto;
-        }
-    </style>
 </head>
 <body>
 

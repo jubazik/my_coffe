@@ -135,7 +135,12 @@ USE_I18N = True
 CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'https://buhobed.ru']
 STATIC_URL = 'static/'
 # STATIC_ROOT = '/app/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+    os.path.join(BASE_DIR, 'directory/static'),
+    os.path.join(BASE_DIR, 'myauth/static'),
+    os.path.join(BASE_DIR, 'all_orders/static'),
+]
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

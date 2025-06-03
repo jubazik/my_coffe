@@ -4,7 +4,7 @@
     <h1>Список заказов</h1>
 
     <!-- Формы фильтрации -->
-     <form method="get" class="mb-4">
+    <form method="get" class="mb-4">
         <div class="row g-3">
             <div class="col-md-3">
                 {{ date_form.start_date.label_tag }}
@@ -44,8 +44,13 @@
                 <td>{{ order.total_sum|default:"0" }} ₽</td>
                 <td>
                     <a href="{% url 'edit_order' order.id %}" class="btn btn-sm btn-info">Подробнее</a>
-                    <form method="post" action="{% url 'update_order_status' order.id %}" class="status-form">
+                    <form method="post" class="status-form">
                         {% csrf_token %}
+                        <input type="hidden" name="order_id" value="{{ order.id }}">
+                        <!-- Сохраняем параметры фильтрации -->
+                        {% for key, value in request.GET.items %}
+                            <input type="hidden" name="{{ key }}" value="{{ value }}">
+                        {% endfor %}
                         <select name="status" class="form-select form-select-sm">
                             {% for status in status_choices %}
                             <option value="{{ status.0 }}" {% if status.0 == order.status %}selected{% endif %}>
@@ -64,8 +69,37 @@
         </tbody>
     </table>
 
-    <!-- Пагинация и общая сумма остаются без изменений -->
-    ...
+    <!-- Пагинация -->
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <div>
+            <p class="mb-0">Общая сумма оплаченных заказов: <strong>{{ total_order_sum|default:"0" }} ₽</strong></p>
+        </div>
+        <nav>
+            <ul class="pagination">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Назад</a>
+                    </li>
+                {% endif %}
+
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                        <li class="page-item active"><a class="page-link" href="#">{{ num }}</a></li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Вперед</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
 </div>
 
 <script>
