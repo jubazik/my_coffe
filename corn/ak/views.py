@@ -9,15 +9,13 @@ from .forms import AkForms
 
 
 
-def create_ak(request):
-    if request.method == 'POST':
-        form = AkForms(request.POST)
-        if form.is_valid():
-            form.save()
-            return Response(status=200)
-    else:
-        form = AkForms()
-        return Response(status=400)
+# def create_ak(request):
+#     if request.method == 'POST':
+#         form = AkForms(request.POST)
+#         if form.is_valid():
+#             form.save()
+#             return Response(status=200)
+#     else:
+#         form = AkForms()
+#         return Response(status=400)
 
-    # return  render(request, "нужно добавить путь к нему ", {'form': form})
-# Create your views here.

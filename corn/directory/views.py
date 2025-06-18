@@ -32,26 +32,25 @@ def set_time_zone(sender, connection, **kwargs):
         cursor = connection.cursor()
         cursor.execute("PRAGMA timezone = 'Europe/Moscow';")
 
+
 class CreateProductAPIVew(APIView):
     def post(self, request):
         serialize = ProductsSerializers(data=request.data)
         if not serialize.is_valid():
             logger.error(f'Ошибка формы {serialize.errors}')
             return Response({
-                'error':  "Invalid data", "details": serialize.errors
+                'error': "Invalid data", "details": serialize.errors
             },
-                status = status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST
             )
         try:
             product = serialize.save()
 
-
-
             return Response(
                 {
-                    'product':product
+                    'product': product
                 },
-                status= status.HTTP_200_OK
+                status=status.HTTP_200_OK
             )
         except Exception as e:
             logger.error(f'Ошибка создания заказа: {str(e)}', exc_info=True)
@@ -76,310 +75,316 @@ class CreateProductAPIVew(APIView):
 #
 #
 
-def product_list(request):
-    """Отображение списка товаров."""
-    products = Products.objects.all()
-    return render(request, 'directory/product_list.html', {'products': products})
+
+# def product_list(request):
+#     """Отображение списка товаров."""
+#     products = Products.objects.all()
+#     return render(request, 'directory/product_list.html', {'products': products})
 
 
-class CreateOrderAPIew(APIView):
+class ProductsListAPIView(APIView):
     def get(self, request):
-        categories = (
-            Products.objects
-            .exclude(categpry__isnull=True)
-            .order_by("category__name")
-            .velues_list('category__name', float=True)
-            .distinct()
-        )
-        products_by_category = {}
-        for category in categories:
-            products = Products.objects.filter(
-                category__name=category  # Добавляем фильтр по активности
-            ).order_by('name')
-            if products.exists():  # Добавляем только непустые категории
-                products_by_category[category] = products
+        products = Products.objects.all()
         return Response({
-            "products_by_category": products_by_category
-        })
-
-    def post(self, request):
-        serialize = OrderTableSerializers(data=request.data)
-        if not serialize.is_valid():
-            logger.error(f'Ошибка формы : {serialize.errors}')
-            return Response({"Error": "Invalid data", "details": serialize.errors}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            with transaction.atomic():
-                oder = serialize.save(date=timezone.now(), status='unpaid')
-                items_added = 0
-                for product in Products.objects.all():
-                    count = request.data.get(f"product_{product.id}", 0)
-                    try:
-                        count = int(count)
-                        OrderItem.objects.create(
-                            order=order,
-                            product=product,
-                            count=count,
-                            price=product.price
-                        )
-                        items_added += 1
-                    except ValueError:
-                        logger.warning(f"Некорректное количество для товара {product.id}")
-                        continue
-                    if items_added == 0:
-                        order.delete()
-                        return Response(
-                            {"error": 'No items added'},
-                            status=status.HTTP_400_BAD_REQUEST
-                        )
-                    return Response({
-                        "success": True,
-                        "order_id": order.id, },
-                        status=status.HTTP_201_CREATED
-                    )
-        except Exception as e:
-            logger.error(f'Ошибка создания заказа: {str(e)}', exc_info=True)
+            'products': products
+        },
+            status=status.HTTP_200_OK
+        )
+class CreateOrderAPIew(APIView):
+        def get(self, request):
+            categories = (
+                Products.objects
+                .exclude(categpry__isnull=True)
+                .order_by("category__name")
+                .velues_list('category__name', float=True)
+                .distinct()
+            )
+            products_by_category = {}
+            for category in categories:
+                products = Products.objects.filter(
+                    category__name=category  # Добавляем фильтр по активности
+                ).order_by('name')
+                if products.exists():  # Добавляем только непустые категории
+                    products_by_category[category] = products
             return Response({
-                "error": 'Order create failed'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                "products_by_category": products_by_category
+            })
 
-
-# def create_order(request):
-#     categories = (
-#         Products.objects
-#         .exclude(category__isnull=True)
-#         .order_by('category__name')
-#         .values_list('category__name', flat=True)
-#         .distinct()
-#     )
-#
-#     # Формируем словарь с активными товарами
-#     products_by_category = {}
-#     for category in categories:
-#         products = Products.objects.filter(
-#             category__name=category  # Добавляем фильтр по активности
-#         ).order_by('name')
-#         if products.exists():  # Добавляем только непустые категории
-#             products_by_category[category] = products
-#
-#     if request.method == 'POST':
-#         order_form = OrderForm(request.POST)
-#         if order_form.is_valid():
-#             try:
-#                 with transaction.atomic():
-#                     # Создаем заказ
-#                     order = order_form.save(commit=False)
-#                     order.date = timezone.now()
-#                     order.status = 'unpaid'  # Статус устанавливается явно
-#                     order.save()
-#
-#                     # Обрабатываем товары в заказе
-#                     items_added = 0
-#                     for product in Products.objects.all():
-#                         count_str = request.POST.get(f'product_{product.id}', '0')
-#                         try:
-#                             count = int(count_str)
-#                             if count > 0:
-#                                 OrderItem.objects.create(
-#                                     order=order,
-#                                     product=product,
-#                                     count=count,
-#                                     price=product.price,
-#                                     sum=count * product.price
-#                                 )
-#                                 items_added += 1
-#                                 logger.debug(f"Добавлен товар {product.id}, количество: {count}")
-#
-#                         except ValueError:
-#                             logger.warning(f"Некорректное количество для товара {product.id}: {count_str}")
-#                             continue
-#
-#                     if items_added == 0:
-#                         order.delete()
-#                         messages.warning(request, "Заказ не создан: не выбрано ни одного товара")
-#                         return redirect('order_list')
-#
-#                     messages.success(request, f"Заказ #{order.id} успешно создан")
-#                     return redirect('order_list')
-#
-#             except Exception as e:
-#                 logger.error(f"Ошибка создания заказа: {str(e)}", exc_info=True)
-#                 # return JsonResponse("Произошла ошибка при создании заказа. Пожалуйста, попробуйте еще раз.", status=400)
-#                 messages.error(request, "Произошла ошибка при создании заказа. Пожалуйста, попробуйте еще раз.")
-#         else:
-#             logger.error(f"Ошибки формы: {order_form.errors}")
-#             # return JsonResponse("Пожалуйста, исправьте ошибки в форме.", status=400)
-#             messages.error(request, "Пожалуйста, исправьте ошибки в форме.")
-#     else:
-#         order_form = OrderForm()
-#     return JsonResponse(status=HTTP_200_OK)
-#     return render(request, 'directory/create_order.html', {
-#         'order_form': order_form,
-#         'products_by_category': products_by_category,
-#         'mode': 'create'
-#     })
-
-
-class EditOrderAPIVew(APIView):
-    def get(self, request, order_id):
-        order = get_object_or_404(OrderTable, id=order_id)
-        order_items = order.orderitem_set.all()
-
-        categories = (
-            Products.objects
-            .exclude(catergory__inull=True)
-            .order_by("category__name")
-            .values_list('category_name', flat=True)
-            .distinct()
-        )
-        products_by_category = {}
-        for category in categories:
-            products = Products.objects.filetr(
-                category__name=category
-            ).order_by('name')
-            if products.exists():
-                products_by_category[category] = products
-        return Response({
-            'order': OrderTableSerializers(order).data,
-            'order_items': OrderItemSerializers(order_items, many=True).data,
-            'products_by_category': products_by_category,
-        })
-
-    def put(self, request, order_id):
-        order = get_object_or_404(OrderTable, id=order_id)
-        serializer = OrderTableSerializers(order, data=request.data, partial=True)
-
-        if not serializer.is_valid():
-            logger.error(f'Order form Errs=or {serializer.errors}')
-            return Response({'error': "invalid data", 'details': serializer.errors},
-                            status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            with transaction.atomic():
-                # Обновляем данные заказа
-                order = serializer.save()
-                # Удаляем старый
-                order.orderitem_set.all().delete()
-                item_added = 0
-
-                for product in Products.objects.all():
-                    product_key = f"product_{product.id}"
-                    if product_key in request.data:
-                        count = request.data[product_key]
+        def post(self, request):
+            serialize = OrderTableSerializers(data=request.data)
+            if not serialize.is_valid():
+                logger.error(f'Ошибка формы : {serialize.errors}')
+                return Response({"Error": "Invalid data", "details": serialize.errors},
+                                status=status.HTTP_400_BAD_REQUEST)
+            try:
+                with transaction.atomic():
+                    oder = serialize.save(date=timezone.now(), status='unpaid')
+                    items_added = 0
+                    for product in Products.objects.all():
+                        count = request.data.get(f"product_{product.id}", 0)
                         try:
-                            # count = int(count)
-                            if int(count) > 0:
-                                OrderItem.objects.create(
-                                    order=order,
-                                    product=product,
-                                    count=count,
-                                    price=product.price,
-                                    sum=product.price * count
-                                )
-                                item_added += 1
+                            count = int(count)
+                            OrderItem.objects.create(
+                                order=order,
+                                product=product,
+                                count=count,
+                                price=product.price
+                            )
+                            items_added += 1
                         except ValueError:
-                            logger.error(f'Invalid quantity for product {product.id}')
+                            logger.warning(f"Некорректное количество для товара {product.id}")
                             continue
-                        if item_added == 0:
-                            return Response({
-                                "error": "No items added"
-                            },
+                        if items_added == 0:
+                            order.delete()
+                            return Response(
+                                {"error": 'No items added'},
                                 status=status.HTTP_400_BAD_REQUEST
                             )
                         return Response({
-                            'success': True,
-                            'order_id': order_id,
-                            'status': order.status
-                        },
-                            status=status.HTTP_200_OK
+                            "success": True,
+                            "order_id": order.id, },
+                            status=status.HTTP_201_CREATED
                         )
-        except Exception as e:
-            logger.error(f"Order update error: {str(e)}", exc_info=True)
-            return Response({
-                "error": "Order update failed"
-            },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            except Exception as e:
+                logger.error(f'Ошибка создания заказа: {str(e)}', exc_info=True)
+                return Response({
+                    "error": 'Order create failed'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # def create_order(request):
+    #     categories = (
+    #         Products.objects
+    #         .exclude(category__isnull=True)
+    #         .order_by('category__name')
+    #         .values_list('category__name', flat=True)
+    #         .distinct()
+    #     )
+    #
+    #     # Формируем словарь с активными товарами
+    #     products_by_category = {}
+    #     for category in categories:
+    #         products = Products.objects.filter(
+    #             category__name=category  # Добавляем фильтр по активности
+    #         ).order_by('name')
+    #         if products.exists():  # Добавляем только непустые категории
+    #             products_by_category[category] = products
+    #
+    #     if request.method == 'POST':
+    #         order_form = OrderForm(request.POST)
+    #         if order_form.is_valid():
+    #             try:
+    #                 with transaction.atomic():
+    #                     # Создаем заказ
+    #                     order = order_form.save(commit=False)
+    #                     order.date = timezone.now()
+    #                     order.status = 'unpaid'  # Статус устанавливается явно
+    #                     order.save()
+    #
+    #                     # Обрабатываем товары в заказе
+    #                     items_added = 0
+    #                     for product in Products.objects.all():
+    #                         count_str = request.POST.get(f'product_{product.id}', '0')
+    #                         try:
+    #                             count = int(count_str)
+    #                             if count > 0:
+    #                                 OrderItem.objects.create(
+    #                                     order=order,
+    #                                     product=product,
+    #                                     count=count,
+    #                                     price=product.price,
+    #                                     sum=count * product.price
+    #                                 )
+    #                                 items_added += 1
+    #                                 logger.debug(f"Добавлен товар {product.id}, количество: {count}")
+    #
+    #                         except ValueError:
+    #                             logger.warning(f"Некорректное количество для товара {product.id}: {count_str}")
+    #                             continue
+    #
+    #                     if items_added == 0:
+    #                         order.delete()
+    #                         messages.warning(request, "Заказ не создан: не выбрано ни одного товара")
+    #                         return redirect('order_list')
+    #
+    #                     messages.success(request, f"Заказ #{order.id} успешно создан")
+    #                     return redirect('order_list')
+    #
+    #             except Exception as e:
+    #                 logger.error(f"Ошибка создания заказа: {str(e)}", exc_info=True)
+    #                 # return JsonResponse("Произошла ошибка при создании заказа. Пожалуйста, попробуйте еще раз.", status=400)
+    #                 messages.error(request, "Произошла ошибка при создании заказа. Пожалуйста, попробуйте еще раз.")
+    #         else:
+    #             logger.error(f"Ошибки формы: {order_form.errors}")
+    #             # return JsonResponse("Пожалуйста, исправьте ошибки в форме.", status=400)
+    #             messages.error(request, "Пожалуйста, исправьте ошибки в форме.")
+    #     else:
+    #         order_form = OrderForm()
+    #     return JsonResponse(status=HTTP_200_OK)
+    #     return render(request, 'directory/create_order.html', {
+    #         'order_form': order_form,
+    #         'products_by_category': products_by_category,
+    #         'mode': 'create'
+    #     })
+
+class EditOrderAPIVew(APIView):
+        def get(self, request, order_id):
+            order = get_object_or_404(OrderTable, id=order_id)
+            order_items = order.orderitem_set.all()
+
+            categories = (
+                Products.objects
+                .exclude(catergory__inull=True)
+                .order_by("category__name")
+                .values_list('category_name', flat=True)
+                .distinct()
             )
+            products_by_category = {}
+            for category in categories:
+                products = Products.objects.filetr(
+                    category__name=category
+                ).order_by('name')
+                if products.exists():
+                    products_by_category[category] = products
+            return Response({
+                'order': OrderTableSerializers(order).data,
+                'order_items': OrderItemSerializers(order_items, many=True).data,
+                'products_by_category': products_by_category,
+            })
 
+        def put(self, request, order_id):
+            order = get_object_or_404(OrderTable, id=order_id)
+            serializer = OrderTableSerializers(order, data=request.data, partial=True)
 
-# def edit_order(request, order_id):
-#     order = get_object_or_404(OrderTable, id=order_id)
-#     order_items = order.orderitem_set.all()
-#
-#     # Получаем все категории (без фильтрации по is_active)
-#     categories = (
-#         Products.objects
-#         .exclude(category__isnull=True)
-#         .order_by('category__name')
-#         .values_list('category__name', flat=True)
-#         .distinct()
-#     )
-#
-#     # Формируем словарь с товарами по категориям
-#     products_by_category = {}
-#     for category in categories:
-#         products = Products.objects.filter(
-#             category__name=category
-#         ).order_by('name')
-#         if products.exists():
-#             products_by_category[category] = products
-#
-#     if request.method == 'POST':
-#         order_form = OrderForm(request.POST, instance=order)
-#         if order_form.is_valid():
-#             try:
-#                 with transaction.atomic():
-#                     # Сохраняем изменения в заказе
-#                     order = order_form.save(commit=False)
-#                     order.save()
-#
-#                     # Удаляем все текущие товары в заказе
-#                     order.orderitem_set.all().delete()
-#
-#                     # Обрабатываем новые товары из формы
-#                     items_added = 0
-#                     for key, value in request.POST.items():
-#                         if key.startswith('product_'):
-#                             product_id = key.split('_')[1]
-#                             try:
-#                                 product = Products.objects.get(id=product_id)
-#                                 count = int(value)
-#                                 if count > 0:
-#                                     OrderItem.objects.create(
-#                                         order=order,
-#                                         product=product,
-#                                         count=count,
-#                                         price=product.price,
-#                                         sum=count * product.price
-#                                     )
-#                                     items_added += 1
-#                             except (ValueError, Products.DoesNotExist):
-#                                 continue
-#
-#                     if items_added == 0:
-#                         messages.warning(request, "В заказе нет товаров")
-#                     else:
-#                         messages.success(request, f"Заказ #{order.id} успешно обновлен")
-#
-#                     return redirect('order_list')
-#
-#             except Exception as e:
-#                 logger.error(f"Ошибка обновления заказа {order_id}: {str(e)}", exc_info=True)
-#                 messages.error(request, f"Ошибка при обновлении заказа: {str(e)}")
-#         else:
-#             messages.error(request, "Пожалуйста, исправьте ошибки в форме")
-#     else:
-#         # Создаем словарь с текущими количествами товаров
-#         initial_counts = {item.product.id: item.count for item in order_items}
-#         order_form = OrderForm(instance=order)
-#
-#     return render(request, 'directory/edit_order.html', {
-#         'order_form': order_form,
-#         'products_by_category': products_by_category,
-#         'initial_counts': initial_counts,
-#         'order': order,
-#         'mode': 'edit'
-#     })
+            if not serializer.is_valid():
+                logger.error(f'Order form Errs=or {serializer.errors}')
+                return Response({'error': "invalid data", 'details': serializer.errors},
+                                status=status.HTTP_400_BAD_REQUEST)
 
+            try:
+                with transaction.atomic():
+                    # Обновляем данные заказа
+                    order = serializer.save()
+                    # Удаляем старый
+                    order.orderitem_set.all().delete()
+                    item_added = 0
+
+                    for product in Products.objects.all():
+                        product_key = f"product_{product.id}"
+                        if product_key in request.data:
+                            count = request.data[product_key]
+                            try:
+                                # count = int(count)
+                                if int(count) > 0:
+                                    OrderItem.objects.create(
+                                        order=order,
+                                        product=product,
+                                        count=count,
+                                        price=product.price,
+                                        sum=product.price * count
+                                    )
+                                    item_added += 1
+                            except ValueError:
+                                logger.error(f'Invalid quantity for product {product.id}')
+                                continue
+                            if item_added == 0:
+                                return Response({
+                                    "error": "No items added"
+                                },
+                                    status=status.HTTP_400_BAD_REQUEST
+                                )
+                            return Response({
+                                'success': True,
+                                'order_id': order_id,
+                                'status': order.status
+                            },
+                                status=status.HTTP_200_OK
+                            )
+            except Exception as e:
+                logger.error(f"Order update error: {str(e)}", exc_info=True)
+                return Response({
+                    "error": "Order update failed"
+                },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+    # def edit_order(request, order_id):
+    #     order = get_object_or_404(OrderTable, id=order_id)
+    #     order_items = order.orderitem_set.all()
+    #
+    #     # Получаем все категории (без фильтрации по is_active)
+    #     categories = (
+    #         Products.objects
+    #         .exclude(category__isnull=True)
+    #         .order_by('category__name')
+    #         .values_list('category__name', flat=True)
+    #         .distinct()
+    #     )
+    #
+    #     # Формируем словарь с товарами по категориям
+    #     products_by_category = {}
+    #     for category in categories:
+    #         products = Products.objects.filter(
+    #             category__name=category
+    #         ).order_by('name')
+    #         if products.exists():
+    #             products_by_category[category] = products
+    #
+    #     if request.method == 'POST':
+    #         order_form = OrderForm(request.POST, instance=order)
+    #         if order_form.is_valid():
+    #             try:
+    #                 with transaction.atomic():
+    #                     # Сохраняем изменения в заказе
+    #                     order = order_form.save(commit=False)
+    #                     order.save()
+    #
+    #                     # Удаляем все текущие товары в заказе
+    #                     order.orderitem_set.all().delete()
+    #
+    #                     # Обрабатываем новые товары из формы
+    #                     items_added = 0
+    #                     for key, value in request.POST.items():
+    #                         if key.startswith('product_'):
+    #                             product_id = key.split('_')[1]
+    #                             try:
+    #                                 product = Products.objects.get(id=product_id)
+    #                                 count = int(value)
+    #                                 if count > 0:
+    #                                     OrderItem.objects.create(
+    #                                         order=order,
+    #                                         product=product,
+    #                                         count=count,
+    #                                         price=product.price,
+    #                                         sum=count * product.price
+    #                                     )
+    #                                     items_added += 1
+    #                             except (ValueError, Products.DoesNotExist):
+    #                                 continue
+    #
+    #                     if items_added == 0:
+    #                         messages.warning(request, "В заказе нет товаров")
+    #                     else:
+    #                         messages.success(request, f"Заказ #{order.id} успешно обновлен")
+    #
+    #                     return redirect('order_list')
+    #
+    #             except Exception as e:
+    #                 logger.error(f"Ошибка обновления заказа {order_id}: {str(e)}", exc_info=True)
+    #                 messages.error(request, f"Ошибка при обновлении заказа: {str(e)}")
+    #         else:
+    #             messages.error(request, "Пожалуйста, исправьте ошибки в форме")
+    #     else:
+    #         # Создаем словарь с текущими количествами товаров
+    #         initial_counts = {item.product.id: item.count for item in order_items}
+    #         order_form = OrderForm(instance=order)
+    #
+    #     return render(request, 'directory/edit_order.html', {
+    #         'order_form': order_form,
+    #         'products_by_category': products_by_category,
+    #         'initial_counts': initial_counts,
+    #         'order': order,
+    #         'mode': 'edit'
+    #     })
 
 @permission_required('orders.view_order', raise_exception=True)
 def order_list(request):
@@ -453,7 +458,6 @@ def order_list(request):
     }
     return render(request, 'directory/order_list.html', context)
 
-
 def mark_order_as_paid(request, order_id):
     try:
         order = get_object_or_404(OrderTable, id=order_id)
@@ -470,7 +474,6 @@ def mark_order_as_paid(request, order_id):
         messages.error(request, "Ошибка оплаты")
     return redirect('order_list')
 
-
 @require_POST
 def cancel_order(request, order_id):
     order = get_object_or_404(OrderTable, id=order_id)
@@ -478,7 +481,6 @@ def cancel_order(request, order_id):
     order.save()
     messages.success(request, f'Заказ #{order.id} отменен')
     return redirect('edit_order', order_id=order.id)
-
 
 def cancel_order(request, order_id):
     order = get_object_or_404(OrderTable, id=order_id)
@@ -493,7 +495,6 @@ def cancel_order(request, order_id):
     else:
         messages.warning(request, "Заказ уже отменен.")
     return redirect('order_list')
-
 
 @ensure_csrf_cookie
 @require_POST
@@ -511,7 +512,6 @@ def update_order_status(request, order_id):
     order.save()
 
     return redirect('order_list')
-
 
 def cashreceiptorderviews(request):
     # Собираем все объекты обоих типов в один список
